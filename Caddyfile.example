@@ -1,0 +1,4 @@
+# Replace studio.example.com with the client's domain. Run on the same host as compose.
+studio.example.com {
+    reverse_proxy 127.0.0.1:3100
+}

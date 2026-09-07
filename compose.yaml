@@ -1,0 +1,24 @@
+services:
+  web:
+    build: .
+    env_file: .env.local
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - studio-data:/app/data
+    restart: unless-stopped
+  worker:
+    build: .
+    command: ["node", "server/worker.mjs"]
+    env_file: .env.local
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+    volumes:
+      - studio-data:/app/data
+    restart: unless-stopped
+volumes:
+  studio-data:

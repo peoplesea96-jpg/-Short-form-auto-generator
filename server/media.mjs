@@ -1,0 +1,12 @@
+import {createHmac,timingSafeEqual} from 'node:crypto';
+import {writeFile,readFile,unlink} from 'node:fs/promises';
+import path from 'node:path';
+import {db,dataDir,id,assert} from './db.mjs';
+export function filePath(fid){assert(/^[a-f0-9-]{36}$/.test(fid),'잘못된 파일 ID입니다.');return path.join(dataDir,fid);}
+export function signature(fid,exp){assert((process.env.SESSION_SECRET||'').length>=32,'파일 서명 키 설정이 필요합니다.',503);return createHmac('sha256',process.env.SESSION_SECRET).update(`${fid}:${exp}`).digest('hex');}
+export function verify(fid,exp,sig){if(!Number.isFinite(+exp)||+exp<Date.now()||+exp>Date.now()+86400000||!/^[a-f0-9]{64}$/.test(sig))return false;return timingSafeEqual(Buffer.from(signature(fid,exp)),Buffer.from(sig));}
+export function signedUrl(fid){const exp=Date.now()+3600000;return `${process.env.APP_URL}/api/media/${fid}?expires=${exp}&sig=${signature(fid,exp)}`;}
+export async function storeFile(project,owner,buffer,mime,name){const fid=id(),expires=Date.now()+30*86400000;await writeFile(filePath(fid),buffer,{flag:'wx'});db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?)').run(fid,project,owner,mime,expires,name);return {id:fid,expires,mime,name,url:`/api/media/${fid}`};}
+export async function download(url){const u=new URL(url);const hosts=(process.env.MEDIA_HOSTS||'').split(',').map(x=>x.trim()).filter(Boolean);assert(u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&hosts.includes(u.hostname),'결과 파일 호스트를 운영 설정에서 확인해 주세요.');const r=await fetch(u,{redirect:'error',signal:AbortSignal.timeout(120000)});assert(r.ok,'결과 파일 다운로드에 실패했습니다.');assert(Number(r.headers.get('content-length')||0)<=200*1024*1024,'파일이 너무 큽니다.');const chunks=[];let size=0;for await(const chunk of r.body){size+=chunk.length;assert(size<=200*1024*1024,'파일이 너무 큽니다.');chunks.push(chunk);}return Buffer.concat(chunks);}
+export async function cleanup(){const rows=db.prepare(`SELECT f.* FROM files f WHERE (expires<? OR EXISTS(SELECT 1 FROM projects p WHERE p.id=f.project AND p.deleted=1)) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.project=f.project AND j.status IN ('queued','running','submitting','unknown'))`).all(Date.now());for(const f of rows){await unlink(filePath(f.id)).catch(e=>{if(e.code!=='ENOENT')throw e;});db.prepare('DELETE FROM files WHERE id=?').run(f.id);}db.prepare('DELETE FROM tokens WHERE expires<?').run(Date.now());db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());}
+export {readFile};
