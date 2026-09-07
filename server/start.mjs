@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 
-const port=String(process.env.PORT||3100);
+const port='3100';
 const processes=new Map();
 let stopping=false;
 let finalCode=0;

@@ -62,7 +62,7 @@ npm run worker
 - Next.js 16.3.1 + React / Node.js 24 SQLite + 별도 Node worker / FFmpeg.
 - 1인 P0용 **단일 호스트·영구 볼륨** 구성입니다. 웹·worker가 같은 로컬 SQLite DB와 파일 볼륨을 공유합니다. 서버리스 임시 파일시스템이나 다중 호스트 복제 구성으로 배포하지 않습니다.
 - `compose.yaml`은 웹과 worker를 함께 실행하는 구성입니다. 웹은 호스트의 `127.0.0.1:3100`에만 연결됩니다. 클라이언트 도메인을 사용하는 HTTPS 역방향 프록시를 앞에 설정해야 합니다.
-- Railway의 단일 서비스 배포에서는 Docker entrypoint가 영구 Volume의 쓰기 권한을 준비한 뒤 웹과 worker를 함께 실행합니다. `DATA_DIR=/app/data`와 같은 경로에 Railway Volume을 연결하고, Railway가 제공하는 `PORT`를 웹서버가 사용합니다. 둘 중 하나가 비정상 종료되면 컨테이너를 종료하여 Railway가 전체 서비스를 재시작하도록 합니다.
+- Railway의 단일 서비스 배포에서는 Docker entrypoint가 영구 Volume의 쓰기 권한을 준비한 뒤 웹과 worker를 함께 실행합니다. `DATA_DIR=/app/data`와 같은 경로에 Railway Volume을 연결하고 웹서버의 Target Port는 `3100`으로 설정합니다. 둘 중 하나가 비정상 종료되면 컨테이너를 종료하여 Railway가 전체 서비스를 재시작하도록 합니다.
 - Railway 헬스체크 경로는 `/api/health`입니다. 웹과 worker가 모두 준비되면 HTTP 200과 `{"status":"ok","worker":true}`를 반환합니다.
 - `Caddyfile.example`을 참고해 HTTPS를 구성할 수 있습니다. 실제 계정 생성·서버 계약·도메인 연결·배포는 수행하지 않았습니다.
 - worker는 DB lease로 한 프로세스만 동작합니다. 비정상 종료 후 재시작은 최대 3분의 lease 만료를 기다릴 수 있습니다. 요청 중 종료된 작업은 자동 재발행하지 않습니다.
