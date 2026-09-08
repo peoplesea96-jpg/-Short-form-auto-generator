@@ -21,9 +21,10 @@ export const hash=x=>createHash('sha256').update(x).digest('hex');
 export function tx(fn){db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}
 export function assert(ok,message,status=400){if(!ok){const e=new Error(message);e.status=status;throw e;}}
 export function audit(actor,event,project=''){db.prepare('INSERT INTO audit VALUES(?,?,?,?,?)').run(id(),actor,event,project,Date.now());}
-export function getProject(pid,owner){const row=db.prepare('SELECT * FROM projects WHERE id=? AND deleted=0').get(pid);assert(row && row.owner===owner,'프로젝트를 찾을 수 없습니다.',404);return JSON.parse(row.body);}
+function normalize(p){p.scenes=(p.scenes||[]).map(s=>({...s,avatar:s.avatar||'',voice:s.voice||'',imageApproved:!!s.imageApproved,image:s.image||null,audioApproved:!!s.audioApproved,videoApproved:!!s.videoApproved,history:s.history||[]}));return p;}
+export function getProject(pid,owner){const row=db.prepare('SELECT * FROM projects WHERE id=? AND deleted=0').get(pid);assert(row && row.owner===owner,'프로젝트를 찾을 수 없습니다.',404);return normalize(JSON.parse(row.body));}
 export function saveProject(p){p.updated=Date.now();db.prepare('UPDATE projects SET body=? WHERE id=?').run(JSON.stringify(p),p.id);}
 export function month(now=Date.now()){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(now);}
 export function budget(owner,pid){const rows=db.prepare('SELECT * FROM jobs WHERE owner=?').all(owner);const sum=xs=>xs.reduce((n,j)=>n+(j.actual??j.reserved),0);return {project:sum(rows.filter(j=>j.project===pid)),month:sum(rows.filter(j=>j.month===month())),projectLimit:10000,monthLimit:100000};}
 export function rateLimit(key,max=5,ms=900000){return tx(()=>{let r=db.prepare('SELECT * FROM limits WHERE key=?').get(key);if(!r||r.expires<Date.now()){db.prepare('INSERT OR REPLACE INTO limits VALUES(?,1,?)').run(key,Date.now()+ms);return true;}if(r.count>=max)return false;db.prepare('UPDATE limits SET count=count+1 WHERE key=?').run(key);return true;});}
-export function listProjects(owner){return db.prepare('SELECT body FROM projects WHERE owner=? AND deleted=0').all(owner).map(r=>JSON.parse(r.body)).sort((a,b)=>b.updated-a.updated);}
+export function listProjects(owner){return db.prepare('SELECT body FROM projects WHERE owner=? AND deleted=0').all(owner).map(r=>normalize(JSON.parse(r.body))).sort((a,b)=>b.updated-a.updated);}
