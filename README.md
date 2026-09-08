@@ -65,7 +65,7 @@ npm run worker
 - Railway의 단일 서비스 배포에서는 컨테이너가 웹과 worker를 함께 실행합니다. `DATA_DIR=/app/data`와 같은 경로에 Railway Volume을 연결하고 웹서버의 Target Port는 `3100`으로 설정합니다. 둘 중 하나가 비정상 종료되면 컨테이너를 종료하여 Railway가 전체 서비스를 재시작하도록 합니다.
 - Railway 헬스체크 경로는 `/api/health`입니다. 웹과 worker가 모두 준비되면 HTTP 200과 `{"status":"ok","worker":true}`를 반환합니다.
 - `Caddyfile.example`을 참고해 HTTPS를 구성할 수 있습니다. 실제 계정 생성·서버 계약·도메인 연결·배포는 수행하지 않았습니다.
-- worker는 DB lease로 한 프로세스만 동작합니다. 비정상 종료 후 재시작은 최대 3분의 lease 만료를 기다릴 수 있습니다. 요청 중 종료된 작업은 자동 재발행하지 않습니다.
+- worker는 DB lease로 한 프로세스만 동작합니다. 재배포 시 기존 worker가 살아 있으면 기다리고, 이전 heartbeat가 30초 이상 멈추면 새 worker가 잠금을 인수합니다. 요청 중 종료된 작업은 자동 재발행하지 않습니다.
 - 백업은 SQLite online backup으로 DB를 저장하고 관련 파일을 함께 보존해야 합니다. 실행 중인 DB 파일만 단순 복사하는 방식은 피합니다. 백업 보관 기간과 복구 책임은 유지보수 계약에서 정합니다.
 
 ## 동작상 주의할 실제 제한
