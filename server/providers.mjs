@@ -13,7 +13,7 @@ function output(interaction,type){
 async function request(body,ms=180000){
  assert(process.env.GEMINI_API_KEY,'Gemini API 설정이 필요합니다.',503);
  const r=await fetch(endpoint,{method:'POST',headers:{'x-goog-api-key':process.env.GEMINI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body),redirect:'error',signal:timeout(ms)});
- if(!r.ok){const detail=(await r.text()).slice(0,300);const e=new Error(`Gemini 요청 오류 (${r.status}): ${detail}`);e.statusCode=r.status;e.definitive=true;throw e;}return r.json();
+ if(!r.ok){const raw=(await r.text()).slice(0,1000);let detail=raw;try{detail=JSON.parse(raw)?.error?.message||raw;}catch{}const message=r.status===429?'Gemini API 사용 한도가 없습니다. 이 API 키의 Google Cloud 프로젝트에 결제를 연결하고 유료 등급을 활성화한 뒤 다시 시도하세요.':`Gemini 요청 오류 (${r.status}): ${String(detail).slice(0,220)}`;const e=new Error(message);e.statusCode=r.status;e.definitive=true;throw e;}return r.json();
 }
 export async function getInteraction(providerId){
  assert(/^v1_[A-Za-z0-9_-]+$/.test(providerId),'잘못된 Gemini 작업 ID입니다.');
