@@ -6,9 +6,10 @@ import path from 'node:path';
 
 const dir=mkdtempSync(path.join(tmpdir(),'frame-auth-'));
 process.env.DATA_DIR=dir;
-Object.assign(process.env,{APP_URL:'https://frame.example.test',CLIENT_EMAIL:'client@example.test',ADMIN_EMAIL:'admin@example.test',ALLOW_PUBLIC_SIGNUP:'false',RESEND_API_KEY:'re_test',MAIL_FROM:'Frame <test@example.test>'});
+Object.assign(process.env,{APP_URL:'https://frame.example.test',CLIENT_EMAIL:'client@example.test',ADMIN_EMAIL:'admin@example.test',ALLOW_PUBLIC_SIGNUP:'false',SMTP_USER:'sender@gmail.com',SMTP_APP_PASSWORD:'abcdefghijklmnop'});
 const sent=[];
-globalThis.fetch=async(_url,options)=>{sent.push(JSON.parse(options.body));return new Response('{}',{status:200});};
+const {setMailTransportForTests}=await import('../server/mail.mjs');
+setMailTransportForTests({sendMail:async message=>{sent.push(message);return {messageId:'test'};}});
 const {db}=await import('../server/db.mjs');
 const {register,verifyRegistration,login,findId,requestPasswordReset,resetPassword}=await import('../server/auth.mjs');
 

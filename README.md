@@ -39,7 +39,8 @@ npm run worker
 | `ALLOWED_EMAILS` | 추가 가입 허용 이메일. 여러 개는 쉼표로 구분 |
 | `ALLOW_PUBLIC_SIGNUP` | 공개 회원가입 여부. 비용 악용 방지를 위해 기본 `false` |
 | `SESSION_SECRET` | 32자 이상 세션·파일 서명 키 |
-| `RESEND_API_KEY`, `MAIL_FROM` | 가입 인증, 아이디 안내, 비밀번호 재설정 이메일 전송 |
+| `SMTP_USER` | 가입 인증 메일을 발송할 Gmail 주소 |
+| `SMTP_APP_PASSWORD` | Gmail 2단계 인증에서 생성한 16자리 앱 비밀번호 |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | 구조화된 스토리보드 생성 |
 | `GEMINI_API_KEY` | Nano Banana, Gemini TTS, Gemini Omni Flash 공용 키 |
 | `GEMINI_IMAGE_MODEL` | 기본 `gemini-3.1-flash-lite-image` |

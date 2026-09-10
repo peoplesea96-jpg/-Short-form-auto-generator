@@ -1,5 +1,6 @@
 import {randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 import {db,hash,assert,tx,rateLimit,audit} from './db.mjs';
+import {mailReady,sendMail} from './mail.mjs';
 
 const SESSION_MS=7*86400000;
 const TOKEN_MS=30*60000;
@@ -8,14 +9,12 @@ const idOf=value=>String(value||'').trim().toLowerCase();
 
 function validEmail(email){return email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);}
 function validatePassword(password){assert(typeof password==='string'&&password.length>=10&&password.length<=128&&/[A-Za-z]/.test(password)&&/\d/.test(password),'비밀번호는 영문과 숫자를 포함해 10자 이상 입력해 주세요.');}
-function mailReady(){assert(process.env.RESEND_API_KEY&&process.env.MAIL_FROM&&process.env.APP_URL,'이메일 발송 설정이 필요합니다.',503);}
 function registrationAllowed(email){if(process.env.ALLOW_PUBLIC_SIGNUP==='true')return true;return [process.env.CLIENT_EMAIL,process.env.ADMIN_EMAIL,...String(process.env.ALLOWED_EMAILS||'').split(',')].map(emailOf).filter(Boolean).includes(email);}
 
 export function passwordHash(password){validatePassword(password);const salt=randomBytes(16).toString('hex');const key=scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024});return `scrypt$16384$8$1$${salt}$${key.toString('hex')}`;}
 export function passwordMatches(password,encoded){try{const [kind,n,r,p,salt,stored]=String(encoded).split('$');if(kind!=='scrypt'||!stored)return false;const key=scryptSync(String(password),salt,Buffer.from(stored,'hex').length,{N:Number(n),r:Number(r),p:Number(p),maxmem:64*1024*1024});return timingSafeEqual(key,Buffer.from(stored,'hex'));}catch{return false;}}
 
 function session(email){const raw=randomBytes(32).toString('hex');db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(hash(raw),email,Date.now()+SESSION_MS);return raw;}
-async function sendMail(to,subject,text){mailReady();const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.MAIL_FROM,to:[to],subject,text}),signal:AbortSignal.timeout(15000)});assert(response.ok,'이메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.',502);}
 async function issue(email,kind,mode,subject,intro){const raw=randomBytes(32).toString('hex');const key=hash(raw);db.prepare('DELETE FROM auth_tokens WHERE email=? AND kind=?').run(email,kind);db.prepare('INSERT INTO auth_tokens VALUES(?,?,?,?)').run(key,email,kind,Date.now()+TOKEN_MS);const url=new URL('/login',process.env.APP_URL);url.searchParams.set('mode',mode);url.searchParams.set('token',raw);try{await sendMail(email,subject,`${intro}\n\n${url}\n\n이 링크는 30분 동안 한 번만 사용할 수 있습니다.`);}catch(error){db.prepare('DELETE FROM auth_tokens WHERE hash=?').run(key);throw error;}}
 
 export function user(req){const raw=(req.headers.get('cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('studio_session='))?.slice(15);const account=raw?db.prepare('SELECT a.email,a.id FROM sessions s JOIN accounts a ON a.email=s.email WHERE s.hash=? AND s.expires>? AND a.verified=1').get(hash(raw),Date.now()):null;assert(account,'로그인이 필요합니다.',401);return account.email;}
