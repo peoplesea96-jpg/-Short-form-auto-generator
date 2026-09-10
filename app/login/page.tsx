@@ -1,3 +1,2 @@
-'use client';
-import {useState} from 'react';
-export default function Login(){const [error,setError]=useState(''),[busy,setBusy]=useState(false);async function go(){setBusy(true);const token=new URLSearchParams(location.search).get('token');history.replaceState(null,'','/login');try{const r=await fetch('/api/auth/consume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});const d=await r.json();if(!r.ok)throw Error(d.error);location.href='/';}catch(e:any){setError(e.message);setBusy(false);}}return <main className="login"><div className="brand">f<span>frame</span></div><h1>다시, 이야기를 만들 시간.</h1><p>계속을 누르면 이메일 링크로 안전하게 로그인합니다.</p><button className="primary" disabled={busy} onClick={go}>{busy?'확인 중…':'스튜디오로 계속'}</button>{error&&<p role="alert">{error} <a href="/">새 링크 받기</a></p>}</main>;}
+import AuthPortal from '../../components/AuthPortal';
+export default function Login(){return <AuthPortal/>;}

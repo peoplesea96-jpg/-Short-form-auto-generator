@@ -35,9 +35,11 @@ npm run worker
 | 변수 | 용도 |
 |---|---|
 | `APP_URL` | 서비스의 HTTPS 기본 주소 |
-| `CLIENT_EMAIL`, `ADMIN_EMAIL` | 허용할 클라이언트와 운영자 이메일 |
+| `CLIENT_EMAIL`, `ADMIN_EMAIL` | 최초 가입을 허용할 클라이언트와 운영자 이메일 |
+| `ALLOWED_EMAILS` | 추가 가입 허용 이메일. 여러 개는 쉼표로 구분 |
+| `ALLOW_PUBLIC_SIGNUP` | 공개 회원가입 여부. 비용 악용 방지를 위해 기본 `false` |
 | `SESSION_SECRET` | 32자 이상 세션·파일 서명 키 |
-| `RESEND_API_KEY`, `MAIL_FROM` | 로그인 이메일 전송 |
+| `RESEND_API_KEY`, `MAIL_FROM` | 가입 인증, 아이디 안내, 비밀번호 재설정 이메일 전송 |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | 구조화된 스토리보드 생성 |
 | `GEMINI_API_KEY` | Nano Banana, Gemini TTS, Gemini Omni Flash 공용 키 |
 | `GEMINI_IMAGE_MODEL` | 기본 `gemini-3.1-flash-lite-image` |
