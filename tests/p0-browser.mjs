@@ -1,0 +1,15 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://localhost:3101/preview');await page.getByRole('button',{name:/매일의 작은 쉼/}).click();
+await page.getByLabel('목표 길이 · 15~180초').fill('47');
+page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'목표에 맞춘 길이 조정안 적용'}).click();
+assert.equal(await page.getByLabel('씬 1 길이',{exact:true}).inputValue(),'9.4');
+await page.getByRole('button',{name:'변경사항 저장'}).click();
+await page.reload();await page.getByRole('button',{name:/매일의 작은 쉼/}).click();assert.equal(await page.getByLabel('목표 길이 · 15~180초').inputValue(),'47');
+await page.getByRole('button',{name:'씬 추가',exact:true}).click();assert.equal(await page.getByLabel('씬 1 길이',{exact:true}).inputValue(),'9.4');
+await page.getByLabel('씬 6 삭제',{exact:true}).click();await page.getByRole('button',{name:'변경사항 저장'}).click();
+await page.getByRole('button',{name:'6 최종 완성',exact:true}).click();assert.equal(await page.getByLabel('짧은 영상은 각 씬의 마지막 화면을 유지해 배정 시간을 채웁니다').isChecked(),false);
+await page.screenshot({path:'test-results/p0-timeline.png',fullPage:true});
+assert.deepEqual(errors,[]);console.log('Duration editing, persistence, add/delete and explicit freeze setting: passed');await browser.close();
