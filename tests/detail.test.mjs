@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import sharp from 'sharp';
+const dir=mkdtempSync(path.join(tmpdir(),'detail-tests-'));process.env.DATA_DIR=dir;
+Object.assign(process.env,{OPENAI_API_KEY:'mock',OPENAI_MODEL:'mock-vision',OPENAI_INPUT_KRW_PER_MILLION:'100',OPENAI_OUTPUT_KRW_PER_MILLION:'400',RATES_REVIEWED_AT:'test'});
+const {db,tx,budget,getProject,saveProject}=await import('../server/db.mjs');
+const {newDraft,draft,getDraft,uploadDetail,reorderDetails,analysisQuote,enqueueAnalysis,analyzeDetails,finishAnalysis,attachDraft,saveReview,validateAnalysis,splitRegions}=await import('../server/detail-analysis.mjs');
+const {createProject}=await import('../server/domain.mjs');
+const owner='owner@example.test',brief={title:'상품',kind:'product',description:'사용자가 검토한 상품 정보입니다.',audience:'직장인',facts:'원본 기재',cta:'',source:'',rights:true,duration:30};
+const value={products:[{name:'테스트 상품',title:'상품 이야기',description:'원본에 기재된 상품 정보로 제안한 광고입니다.',audience:'차를 즐기는 사람',cta:'한 잔의 휴식',claims:[{text:'500mL',status:'source',sources:[1]},{text:'인증 여부 불분명',status:'review',sources:[2]}]}],warnings:['인증 문구를 확인해 주세요.']};
+async function uploaded(){const d=newDraft(owner);const buf=await sharp({create:{width:600,height:3000,channels:3,background:'#eee'}}).png().toBuffer();return uploadDetail(owner,d.id,new File([buf],'detail.png',{type:'image/png'}));}
+test('long image regions cover the entire image and overlap',()=>{const regions=splitRegions(600,3000);assert.equal(regions.length,3);assert.equal(regions[0].top,0);assert.ok(regions[1].top<regions[0].height);assert.equal(regions.at(-1).top+regions.at(-1).height,3000);});
+test('drafts and uploads enforce ownership, format and size',async()=>{const d=await uploaded();assert.throws(()=>draft('other',d.id),/없거나/);await assert.rejects(()=>uploadDetail('other',d.id,new File(['x'],'x.png')),/없거나/);await assert.rejects(()=>uploadDetail(owner,d.id,new File([Buffer.alloc(10*1024*1024+1)],'large.png')),/10MB/);await assert.rejects(()=>uploadDetail(owner,d.id,new File(['not an image'],'fake.png')));assert.equal(d.images[0].height,3000);assert.equal(db.prepare('SELECT expires FROM files WHERE id=?').get(d.images[0].id).expires,d.expires);});
+test('analysis reservations are idempotent and survive abandoned drafts',async()=>{const d=await uploaded();const q=analysisQuote(owner,d.id),key=crypto.randomUUID();const a=enqueueAnalysis(owner,d.id,q,key),b=enqueueAnalysis(owner,d.id,q,key);assert.equal(a.id,b.id);assert.equal(budget(owner,d.id).project,q.amount);assert.throws(()=>reorderDetails(owner,d.id,d.revision,[]),/작업/);assert.throws(()=>enqueueAnalysis(owner,d.id,q,crypto.randomUUID()),/이미 분석/);db.prepare("UPDATE jobs SET status='failed',actual=0 WHERE id=?").run(a.id);});
+test('reorder invalidates quotes and analysis result',async()=>{let d=await uploaded();const q=analysisQuote(owner,d.id);d=reorderDetails(owner,d.id,d.revision,d.images.map(i=>i.id));assert.throws(()=>enqueueAnalysis(owner,d.id,q,crypto.randomUUID()),/변경/);assert.throws(()=>reorderDetails(owner,d.id,d.revision,['foreign']),/잘못된/);});
+test('analysis request sends cropped images, validates citations and attaches files and cost atomically',async()=>{let d=await uploaded();const q=analysisQuote(owner,d.id),jobRef=enqueueAnalysis(owner,d.id,q,crypto.randomUUID());const job=db.prepare('SELECT * FROM jobs WHERE id=?').get(jobRef.id);const original=globalThis.fetch;let submitted=false;
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');const body=JSON.parse(options.body);assert.equal(body.input[0].content.filter(c=>c.type==='input_image').length,3);assert.equal(body.store,false);assert.equal(body.text.format.strict,true);return new Response(JSON.stringify({id:'mock-response',status:'completed',usage:{input_tokens:500,output_tokens:400},output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]}),{status:200});};
+ try{const out=await analyzeDetails(JSON.parse(job.input),()=>submitted=true);assert.ok(submitted);finishAnalysis(job,out);}finally{globalThis.fetch=original;}
+ d=getDraft(owner,d.id);assert.equal(d.job.status,'done');assert.equal(d.result.sources.length,3);assert.equal(d.result.products[0].claims[1].status,'review');saveReview(owner,d.id,d.revision,{product:0,fields:{title:'수정 제목',facts:'500mL [출처 1]'}});
+ assert.throws(()=>tx(()=>{const p=createProject(owner,brief);attachDraft('other',p,d.id,d.revision);}),/없거나/);
+ const p=tx(()=>{const p=createProject(owner,brief);attachDraft(owner,p,d.id,d.revision);saveProject(p);return p;});assert.equal(p.assets.length,0);assert.equal(getProject(p.id,owner).detailAnalysis.review.fields.title,'수정 제목');assert.equal(db.prepare('SELECT project FROM files WHERE id=?').get(d.images[0].id).project,p.id);assert.equal(budget(owner,p.id).project,d.job.actual);assert.throws(()=>draft(owner,d.id),/없거나/);
+});
+test('invalid source references are rejected',()=>assert.throws(()=>validateAnalysis(value,[{}]),/출처/));
+test('failed provider requests preserve uploads',async()=>{const d=await uploaded(),original=globalThis.fetch;globalThis.fetch=async()=>new Response('{}',{status:400});try{await assert.rejects(()=>analyzeDetails({draft:d,model:'mock',rates:{input:1,output:1}}),/400/);assert.equal(draft(owner,d.id).images.length,1);}finally{globalThis.fetch=original;}});
+test('monthly cap applies before analysis',async()=>{const d=await uploaded();const previous=process.env.OPENAI_INPUT_KRW_PER_MILLION;process.env.OPENAI_INPUT_KRW_PER_MILLION='1000000000';try{assert.throws(()=>enqueueAnalysis(owner,d.id,analysisQuote(owner,d.id),crypto.randomUUID()),/예산/);}finally{process.env.OPENAI_INPUT_KRW_PER_MILLION=previous;}});
+test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});
