@@ -1,3 +1,4 @@
+import {validateShots} from './creative-structure.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,writeFile,readFile,rm,mkdir,copyFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -15,18 +16,28 @@ export async function merge(p){
   if(process.env.FONT_PATH)await copyFile(process.env.FONT_PATH,path.join(tmp,'fonts','korean.ttf'));
   const target=Number(p.duration)||30;
   validateTimeline(p);
-  const measured={...p,scenes:[]};
+  const measured={...p,scenes:[]},scenePaths=new Map();
+  for(let i=0;i<p.scenes.length;i++){
+   const scene=p.scenes[i];validateShots(scene);if(!scene.shots?.length)continue;
+   const parts=[];
+   for(let j=0;j<scene.shots.length;j++){
+    const shot=scene.shots[j];assert(shot.video?.id,'모든 샷의 영상을 먼저 생성해 주세요.');const actual=await duration(shot.video.id,'video'),seconds=Math.round(shot.seconds*FPS)/FPS;
+    assert(actual+1/FPS>=seconds||p.freezeShortClips,`씬 ${i+1} 샷 ${j+1}: 영상 길이가 부족합니다. 재생성하거나 마지막 화면 유지를 선택해 주세요.`);
+    const filename=`shot-${i}-${j}.mp4`;await run(process.env.FFMPEG_PATH||'ffmpeg',['-y','-i',filePath(shot.video.id),'-an','-vf','setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30'+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS','-frames:v',String(Math.round(seconds*FPS)),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',filename],tmp);parts.push(`file '${filename}'`);
+   }
+   const list=`shots-${i}.txt`,output=`visual-${i}.mp4`;await writeFile(path.join(tmp,list),parts.join('\n'));await run(process.env.FFMPEG_PATH||'ffmpeg',['-y','-f','concat','-safe','1','-i',list,'-c','copy',output],tmp);scenePaths.set(scene.id,path.join(tmp,output));
+  }
   for(const scene of p.scenes){
-   assert(scene.video?.id&&scene.audio?.id,'영상과 음성이 모두 필요합니다.');
-   measured.scenes.push({...scene,video:{...scene.video,duration:await duration(scene.video.id,'video')},audio:{...scene.audio,duration:await duration(scene.audio.id,'audio')}});
+   assert((scenePaths.has(scene.id)||scene.video?.id)&&scene.audio?.id,'영상과 음성이 모두 필요합니다.');
+   measured.scenes.push({...scene,video:{...scene.video,duration:scenePaths.has(scene.id)?scene.seconds:await duration(scene.video.id,'video')},audio:{...scene.audio,duration:await duration(scene.audio.id,'audio')}});
   }
   const frames=validateTimeline(measured,true);
   const sceneDurations=frames.map(n=>n/FPS);
   let start=0,events=[];
   for(let i=0;i<p.scenes.length;i++){
    const s=p.scenes[i],seconds=sceneDurations[i];
-   assert(s.video?.id&&s.audio?.id,'영상과 음성이 모두 필요합니다.');
-   const args=['-y','-i',filePath(s.video.id),'-i',filePath(s.audio.id)];
+   assert((scenePaths.has(s.id)||s.video?.id)&&s.audio?.id,'영상과 음성이 모두 필요합니다.');
+   const args=['-y','-i',scenePaths.get(s.id)||filePath(s.video.id),'-i',filePath(s.audio.id)];
    const filter='[0:v]setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30'+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS[v]';
    args.push('-filter_complex',filter,'-map','[v]','-map','1:a:0','-af','asetpts=PTS-STARTPTS,apad','-t',String(seconds),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','2',`scene-${i}.mp4`);
    await run(process.env.FFMPEG_PATH||'ffmpeg',args,tmp);

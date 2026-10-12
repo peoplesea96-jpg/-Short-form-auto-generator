@@ -1,0 +1,23 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const image='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 320"><rect width="180" height="320" fill="#ded8ef"/><text x="45" y="160">FIXTURE</text></svg>');
+const expiry=Date.now()+600000;
+let p={id:'model-fixture',revision:1,brief:{title:'멀티 모델 테스트',kind:'product',description:'상품과 스토리',audience:'사장님',facts:'원본 자료',rights:true},generationSettings:{image:{model:'nano-banana',resolution:'1K'},video:{model:'gemini-legacy',resolution:'720p'}},duration:15,bgm:'none',bgmVolume:.12,assets:[],finals:[],created:Date.now(),scenes:[{id:'s1',revision:1,seconds:7.5,narration:'제품 소개',visual:'제품 정면',asset:'',scriptApproved:true,imageApproved:true,audioApproved:true,videoApproved:true,image:{id:'old',url:image,expires:expiry},history:[]}]};
+const models=[{id:'nano-banana',kind:'image',label:'Nano Banana',resolutions:['1K']},{id:'gpt-image',kind:'image',label:'GPT Image 1.5',resolutions:['1024x1536']},{id:'kling',kind:'video',label:'Kling 3.0 Standard',resolutions:['standard']},{id:'gemini-legacy',kind:'video',label:'기존 Gemini',resolutions:['720p']}];
+await page.route('**/api/**',async route=>{const req=route.request(),u=new URL(req.url()),path=u.pathname.slice(5);const b=req.method()==='POST'?req.postDataJSON():{};let data;
+ if(path==='models')data={models};else if(path==='me')data={email:'fixture@example.test',admin:false};else if(path==='status')data={gemini:true,script:true,rates:true,worker:true};else if(path==='projects')data={projects:[p],budget:{month:0}};
+ else if(path==='voices')data={configured:true,provider:'gemini',voices:[{id:'Sulafat',name:'Sulafat'}],models:['fixture']};
+ else if(path.endsWith('/generation-settings')){if(b.scene)p.scenes[0].generationSettings={image:b.settings};else p.generationSettings=b.settings;p.revision++;data=p;}
+ else if(path.endsWith('/quote'))data={amount:300,revision:p.revision,kind:'image',scene:'s1',budget:{project:0,month:0},rateDate:'fixture',generations:{s1:{label:'GPT Image 1.5',resolution:'1024x1536',version:'gpt-image-1.5',amount:300}}};
+ else if(path.endsWith('/generate')){const s=p.scenes[0];s.candidates={image:[s.image,{id:'new',url:image,expires:expiry,cost:300,created:Date.now(),generation:{label:'GPT Image 1.5',version:'gpt-image-1.5',resolution:'1024x1536'}}]};p.revision++;data={ok:true};}
+ else if(path.endsWith('/select-candidate')){p.scenes[0].image=p.scenes[0].candidates.image.find(c=>c.id===b.file);p.scenes[0].imageApproved=false;p.scenes[0].videoApproved=false;p.revision++;data=p;}
+ else if(path==='projects/'+p.id)data={project:p,budget:{project:0,month:0},jobs:[]};else throw Error('Unexpected fixture route '+path);await route.fulfill({json:data});
+});
+try{
+ await page.goto('http://localhost:3102');await page.getByRole('button',{name:/멀티 모델 테스트/}).click();
+ const defaults=page.locator('.generation-settings');assert.equal(await defaults.getByLabel('영상 모델',{exact:true}).locator('option[value="kling"]').isDisabled(),true);await defaults.getByLabel('이미지 모델',{exact:true}).selectOption('gpt-image');await defaults.getByRole('button',{name:'기본 모델 저장'}).click();assert.equal(p.generationSettings.image.model,'gpt-image');assert.equal(p.scenes[0].imageApproved,true);
+ await page.getByRole('button',{name:'3 장면 이미지',exact:true}).click();const scene=page.locator('.scene').first();await scene.getByLabel('프로젝트 기본 모델 사용').uncheck();await scene.getByLabel('이미지 모델',{exact:true}).selectOption('gpt-image');await scene.getByRole('button',{name:'이 씬 모델 저장'}).click();assert.equal(p.scenes[0].generationSettings.image.model,'gpt-image');
+ await scene.getByRole('button',{name:'비교 후보 추가'}).click();await page.getByRole('heading',{name:'생성 비용을 확인해 주세요'}).waitFor();assert.match(await page.locator('.quote-models').innerText(),/GPT Image/);await page.getByRole('button',{name:'확인하고 실행'}).click();await scene.getByText('생성 후보 2개',{exact:false}).waitFor();assert.equal(p.scenes[0].image.id,'old');assert.equal(p.scenes[0].imageApproved,true);
+ await page.screenshot({path:'test-results/v4-model-comparison.png',fullPage:true});await scene.getByRole('button',{name:'이 후보 선택',exact:true}).click();assert.equal(p.scenes[0].image.id,'new');assert.equal(p.scenes[0].imageApproved,false);assert.deepEqual(errors,[]);console.log('Project defaults, scene override, cost confirmation, preserved approval and explicit candidate selection: passed (mock only).');
+}finally{await browser.close();}

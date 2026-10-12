@@ -1,0 +1,20 @@
+process.env.HIGGSFIELD_ENABLED='true';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,readFileSync,writeFileSync} from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const data=mkdtempSync(path.resolve('test-results/hf-worker-'));Object.assign(process.env,{DATA_DIR:data,NODE_ENV:'test',WORKER_POLL_MS:'20',HIGGSFIELD_API_KEY:'mock-key',HIGGSFIELD_UPLOAD_HOSTS:'uploads.example.test',MEDIA_HOSTS:'media.example.test',RATES_REVIEWED_AT:'test',USD_TO_KRW:'1000',HIGGSFIELD_KLING_USD_PER_SECOND:'.1',FFMPEG_PATH:path.resolve('test-results/tools/ffmpeg.exe'),HF_MOCK_VIDEO:path.join(data,'fixture.mp4')});delete process.env.FFPROBE_PATH;
+const {db,id,getProject,saveProject,budget}=await import('../server/db.mjs');const {createProject,quote,enqueue}=await import('../server/domain.mjs');const {voiceHash}=await import('../server/project-profiles.mjs');const {run}=await import('../server/render.mjs');const {storeFile}=await import('../server/media.mjs');
+await run(process.env.FFMPEG_PATH,['-y','-i','test-results/render-data/source.mp4','-vf','tpad=stop_mode=clone:stop_duration=3','-t','3','-an',process.env.HF_MOCK_VIDEO]);
+const owner='worker-fixture@example.test';
+for(const mode of ['ambiguous','rejected','success']){
+ const p=createProject(owner,{title:mode,kind:'product',description:'테스트 전용 상품 정보입니다.',audience:'테스트',facts:'원본',source:'',cta:'',rights:true,generationSettings:{image:{model:'nano-banana',resolution:'1K'},video:{model:'kling',resolution:'standard'}}});
+ const image=await storeFile(p.id,owner,Buffer.from('test-only image'),'image/png','fixture.png');p.scenes=[{id:id(),revision:1,seconds:2,visual:'제품 정면',narration:'제품',asset:'',scriptApproved:true,imageApproved:true,audioApproved:true,videoApproved:true,image,audio:{expires:Date.now()+600000,profileHash:voiceHash(p.voiceProfile)},video:{id:'selected-old',expires:Date.now()+600000},history:[]}];saveProject(p);
+ const log=path.join(data,mode+'.jsonl');writeFileSync(log,'');const job=enqueue(owner,p.id,quote(owner,p.id,'video',p.scenes[0].id),id());const child=spawn(process.execPath,['--import','./tests/mock-higgsfield.mjs','server/worker.mjs'],{windowsHide:true,env:{...process.env,HF_MOCK_MODE:mode,HF_MOCK_LOG:log},stdio:['ignore','pipe','pipe']});let errors='';child.stderr.on('data',d=>errors+=d);child.stdout.on('data',()=>{});
+ try{let result;for(let n=0;n<300;n++){result=db.prepare('SELECT * FROM jobs WHERE id=?').get(job.id);if(['done','failed','unknown'].includes(result.status))break;await new Promise(r=>setTimeout(r,100));}assert.equal(result.status,mode==='ambiguous'?'unknown':mode==='rejected'?'failed':'done',errors+' '+result.error);
+  const calls=readFileSync(log,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);assert.equal(calls.filter(x=>x.method==='POST'&&!x.path.includes('/files/')).length,1);
+  assert.equal(getProject(p.id,owner).scenes[0].video.id,'selected-old');assert.equal(getProject(p.id,owner).scenes[0].videoApproved,true);
+  if(mode==='ambiguous'){assert.equal(result.actual,null);assert.equal(budget(owner,p.id).project,300);}else if(mode==='rejected')assert.equal(result.actual,0);else{assert(calls.filter(x=>x.method==='GET').length>=2);assert.equal(getProject(p.id,owner).scenes[0].candidates.video.length,2);assert.equal(result.actual,300);}
+ }finally{child.kill();await new Promise(resolve=>{child.once('exit',resolve);setTimeout(resolve,2000);});db.prepare('DELETE FROM worker_lock').run();db.prepare('DELETE FROM heartbeat').run();}
+}
+db.close();console.log('Worker: ambiguous POST preserves reservation; rejected POST settles zero; transient polling retries GET only; successful comparison preserves selected approved output (mock only).');

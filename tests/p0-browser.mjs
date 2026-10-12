@@ -2,7 +2,7 @@ import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.goto('http://localhost:3101/preview');await page.getByRole('button',{name:/매일의 작은 쉼/}).click();
+await page.goto('http://localhost:3102/preview');await page.getByRole('button',{name:/매일의 작은 쉼/}).click();
 await page.getByLabel('목표 길이 · 15~180초').fill('47');
 page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'목표에 맞춘 길이 조정안 적용'}).click();
 assert.equal(await page.getByLabel('씬 1 길이',{exact:true}).inputValue(),'9.4');
