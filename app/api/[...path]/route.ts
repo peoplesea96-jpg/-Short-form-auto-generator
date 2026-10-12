@@ -1,3 +1,4 @@
+import {importDetailUrl} from '../../../server/detail-url-import.mjs';
 import {saveCreative,manageVersion} from '../../../server/creative-structure.mjs';
 import {generationCatalog} from '../../../server/generation-models.mjs';
 import {saveGenerationSettings,selectCandidate} from '../../../server/generation-candidates.mjs';
@@ -22,6 +23,7 @@ if(route==='models'&&method==='GET')return json({models:generationCatalog()});
 if(route==='voices'&&method==='GET')return json(await voiceCatalog(req.nextUrl.searchParams.get('provider')||'gemini'));
 if(route==='operations'){assert(admin,'운영 권한이 필요합니다.',403);if(method==='GET')return json({jobs:db.prepare('SELECT id,project,kind,status,reserved,actual,provider_id,error,created FROM jobs ORDER BY created DESC LIMIT 100').all(),audit:db.prepare('SELECT * FROM audit ORDER BY created DESC LIMIT 100').all()});if(method==='POST'){const b=await req.json();const j=db.prepare('SELECT * FROM jobs WHERE id=?').get(b.id) as any;assert(j&&['unknown','failed'].includes(j.status),'확인이 필요한 작업만 처리할 수 있습니다.');if(b.resume===true){assert(j.kind==='video'&&j.provider_id,'저장된 공급자 작업이 없습니다.');const state=JSON.parse(j.provider_id);assert(state.provider==='higgsfield'&&new URL(state.statusUrl).origin==='https://api.higgsfield.ai','저장된 작업 주소를 확인해 주세요.');state.submitted=Date.now();db.prepare("UPDATE jobs SET provider_id=?,status='running',error=NULL WHERE id=?").run(JSON.stringify(state),j.id);}else if(b.providerId){assert(j.kind==='video'&&/^v1_[A-Za-z0-9_-]+$/.test(b.providerId),'Gemini 영상 작업 ID를 확인해 주세요.');db.prepare("UPDATE jobs SET provider_id=?,status='running',error=NULL WHERE id=?").run(b.providerId,j.id);}else{assert(Number.isInteger(b.actual)&&b.actual>=0&&b.confirmed===true,'실제 과금 확인이 필요합니다.');db.prepare("UPDATE jobs SET actual=?,status='failed',error='운영자 정산 완료' WHERE id=?").run(b.actual,j.id);}audit(email,'job.reconcile',j.project);return json({ok:true});}}
 if(route==='detail-drafts'){
+ if(pid&&action==='import-url'&&method==='POST'){assert(Number(req.headers.get('content-length')||0)<8192,'요청이 너무 큽니다.');return json(await importDetailUrl(owner,pid,await req.json()));}
  if(!pid)return method==='GET'?json({drafts:recentDrafts(owner)}):json(newDraft(owner),201);
  if(method==='GET')return json(getDraft(owner,pid));
  if(action==='upload'){assert(Number(req.headers.get('content-length')||0)<11*1024*1024,'파일은 10MB 이하만 가능합니다.');const form=await req.formData();const file=form.get('file');assert(file instanceof File,'이미지 파일이 필요합니다.');return json(await uploadDetail(owner,pid,file));}
