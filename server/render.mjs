@@ -1,3 +1,4 @@
+import {assertMusicReady,musicMix} from './music.mjs';
 import {validateShots} from './creative-structure.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,writeFile,readFile,rm,mkdir,copyFile} from 'node:fs/promises';
@@ -10,6 +11,7 @@ export async function duration(fid,kind){let n;if(process.env.FFPROBE_PATH){n=Nu
 const assText=s=>s.replace(/[{}\\\r]/g,'').replace(/\n/g,'\\N').replace(/(.{20})/g,'$1\\N');
 const time=s=>`${Math.floor(s/3600)}:${String(Math.floor(s/60)%60).padStart(2,'0')}:${(s%60).toFixed(2).padStart(5,'0')}`;
 export async function merge(p){
+ assertMusicReady(p);
  const tmp=await mkdtemp(path.join(dataDir,'render-'));
  try{
   await mkdir(path.join(tmp,'fonts'));
@@ -51,8 +53,10 @@ export async function merge(p){
   await writeFile(path.join(tmp,'captions.ass'),`[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,${font},54,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,1,0,0,0,100,100,0,0,1,3,1,2,80,80,280,1\nStyle: CTA,${font},68,&H00FFFFFF,&H00FFFFFF,&H00101010,&H70000000,1,0,0,0,100,100,0,0,3,14,0,5,120,120,0,1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n${events.join('\n')}`);
   const args=['-y','-f','concat','-safe','1','-i','list.txt'];
   if(p.bgm==='ambient')args.push('-f','lavfi','-i',`aevalsrc=0.08*(sin(2*PI*220*t)+0.6*sin(2*PI*277.18*t)+0.4*sin(2*PI*329.63*t))*(0.65+0.35*sin(2*PI*0.08*t)):s=48000:d=${target}`);
+  if(p.bgm==='generated')args.push('-stream_loop','-1','-i',filePath(p.music.track.id));
   args.push('-vf','ass=captions.ass:fontsdir=fonts');
-  if(p.bgm==='ambient')args.push('-filter_complex',`[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[voice];[1:a]volume=${p.bgmVolume*.08}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`,'-map','0:v','-map','[a]');
+  if(p.bgm==='generated')args.push('-filter_complex',musicMix(p,target),'-map','0:v','-map','[a]');
+  else if(p.bgm==='ambient')args.push('-filter_complex',`[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[voice];[1:a]volume=${p.bgmVolume*.08}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`,'-map','0:v','-map','[a]');
   else args.push('-af','loudnorm=I=-16:TP=-1.5:LRA=11');
   args.push('-t',String(target),'-r','30','-c:v','libx264','-preset','fast','-c:a','aac','-movflags','+faststart','final.mp4');
   await run(process.env.FFMPEG_PATH||'ffmpeg',args,tmp);
