@@ -63,6 +63,9 @@ export async function merge(p){
   const check=await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-i','final.mp4','-map','0:v:0','-f','null','-','-progress','pipe:1'],tmp);
   const count=Math.max(...[...check.matchAll(/frame=(\d+)/g)].map(m=>Number(m[1])));
   assert(Math.abs(count-target*FPS)<=1,'합성 영상 길이가 목표와 다릅니다. 결과를 저장하지 않았습니다.');
+  const audioCheck=await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-i','final.mp4','-map','0:a:0','-f','null','-','-progress','pipe:1'],tmp);
+  const audioSeconds=Math.max(...[...audioCheck.matchAll(/out_time_us=(\d+)/g)].map(m=>Number(m[1])/1e6));
+  assert(Number.isFinite(audioSeconds)&&Math.abs(audioSeconds-target)<.15,'합성 음성 길이가 목표와 다릅니다. 결과를 저장하지 않았습니다.');
   return await readFile(path.join(tmp,'final.mp4'));
  }finally{await rm(tmp,{recursive:true,force:true});}
 }
