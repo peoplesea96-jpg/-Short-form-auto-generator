@@ -21,16 +21,17 @@ export function normalizePreset(p){
  const image=p.preview_url||p.thumbnail_url||p.image_url||p.preview_image_url||p.cover_image_url||(typeof p.thumbnail==='string'?p.thumbnail:p.thumbnail?.url)||(typeof p.image==='string'?p.image:p.image?.url)||(typeof p.preview==='string'?p.preview:p.preview?.url);
  return {id:p.id,name:p.name.slice(0,160),description:typeof p.description==='string'?p.description.slice(0,500):'',preview:typeof image==='string'?previewUrl(image):null};
 }
-export async function marketingCatalog({force=false,call=request}={}){
+export async function marketingCatalog({force=false,call=request,pause=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  credentialReady();const account=hash(process.env.HIGGSFIELD_API_KEY);if(call===request&&!force&&cached?.account===account&&cached.expires>Date.now())return cached.data;
  const items=[],seen=new Set(),cursors=new Set();let cursor=null,total=0;
  for(let page=0;page<20;page++){
-  const r=await call('/marketing-studio/image/presets?size=50'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+  let r;for(let attempt=0;attempt<3;attempt++){try{r=await call('/marketing-studio/image/presets?size=50'+(cursor!==null?'&cursor='+encodeURIComponent(cursor):''));break;}catch(e){if(attempt===2||!e.retryable)throw e;await pause(1000*2**attempt);}}
   assert(Array.isArray(r.items),'프리셋 목록 응답을 확인할 수 없습니다.',502);
   if(Number.isFinite(r.total))total=r.total;
   for(const raw of r.items){const p=normalizePreset(raw);if(p&&!seen.has(p.id)){items.push(p);seen.add(p.id);}}
-  cursor=r.cursor;if(!cursor)break;
-  assert(typeof cursor==='string'&&cursor.length<4096&&!cursors.has(cursor)&&page<19,'프리셋 목록 페이지를 확인할 수 없습니다.',502);cursors.add(cursor);
+  cursor=r.cursor;if(cursor===null||cursor===undefined||cursor==='')break;
+  assert(typeof cursor==='string'||Number.isSafeInteger(cursor)&&cursor>=0,'프리셋 cursor 형식을 확인할 수 없습니다.',502);cursor=String(cursor);
+  assert(cursor.length<4096&&!cursors.has(cursor)&&page<19,'프리셋 목록 페이지를 확인할 수 없습니다.',502);cursors.add(cursor);
  }
  const data={items,total,checkedAt:Date.now(),generationVerified:false};if(call===request)cached={data,account,expires:Date.now()+60000};return data;
 }
