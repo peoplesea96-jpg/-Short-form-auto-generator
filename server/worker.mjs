@@ -1,3 +1,4 @@
+import {checkMarketingConnection} from './marketing-connection.mjs';
 import {outputProfile} from './output-settings.mjs';
 import {generateMusic} from './music.mjs';
 import {findUnit,refreshSceneApprovals} from './creative-structure.mjs';
@@ -44,5 +45,10 @@ const lease=setInterval(()=>{db.prepare('UPDATE worker_lock SET expires=? WHERE 
 process.on('exit',()=>{clearInterval(lease);db.prepare('DELETE FROM worker_lock WHERE owner=?').run(workerId);});
 db.prepare("UPDATE jobs SET status='unknown',error='작업 프로세스가 요청 도중 종료되었습니다. 공급자 작업을 확인해 주세요.' WHERE status='submitting'").run();
 console.log('Shortform worker started.');
+if(process.env.NODE_ENV!=='test'&&process.env.HIGGSFIELD_API_KEY)console.log('Marketing Studio connection check: '+JSON.stringify(await checkMarketingConnection()));
 while(!stop){db.prepare('INSERT OR REPLACE INTO heartbeat VALUES(1,?)').run(Date.now());const job=tx(()=>db.prepare("SELECT * FROM jobs WHERE status IN ('queued','running') ORDER BY created LIMIT 1").get());if(job){try{await step(job);}catch(e){const fresh=db.prepare('SELECT * FROM jobs WHERE id=?').get(job.id);const unknown=(fresh.status==='submitting'&&e?.definitive!==true)||(fresh.kind==='video'&&!!fresh.provider_id);const partial=JSON.parse(fresh.result||'[]');if(partial.length&&['image','audio','video'].includes(fresh.kind))finish(fresh,partial,null,unknown?'unknown':'failed');update(job.id,{status:unknown?'unknown':'failed',actual:fresh.kind==='music'?(Object.hasOwn(e,'musicCost')?e.musicCost:(unknown?null:0)):fresh.kind==='analysis'?(Object.hasOwn(e,'analysisCost')?e.analysisCost:(unknown?fresh.actual:0)):(unknown?fresh.actual:partial.length?Math.ceil(partial.reduce((sum,item)=>sum+(item.cost||0),0)):0),error:unknown?'요청 결과가 불명확합니다. 자동 재요청하지 않으며 운영 확인이 필요합니다.':String(e.message).slice(0,300)});}}await cleanup().catch(()=>{});await new Promise(r=>setTimeout(r,process.env.NODE_ENV==='test'?Number(process.env.WORKER_POLL_MS||50):(job?5000:2000)));}
 clearInterval(lease);
+
+
+
+
