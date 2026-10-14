@@ -2,7 +2,7 @@ import {assert} from './db.mjs';
 import {readFile,filePath,download} from './media.mjs';
 const origin='https://api.higgsfield.ai';
 export function apiUrl(value){const u=new URL(value,origin);assert(u.origin===origin&&!u.username&&!u.password&&!u.hash,'잘못된 Higgsfield 작업 주소입니다.');return u.href;}
-async function request(url,{method='GET',body,idem}={}){
+export async function request(url,{method='GET',body,idem}={}){
  const r=await fetch(apiUrl(url),{method,headers:{Authorization:`Key ${process.env.HIGGSFIELD_API_KEY}`,...(body?{'Content-Type':'application/json'}:{}),...(idem?{'Idempotency-Key':idem}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(45000)});
  if(!r.ok){const e=new Error(`Higgsfield ${method==='GET'?'조회':'요청'} 오류 (${r.status}). 계정 잔액·모델 권한·요율을 확인해 주세요.`);e.definitive=r.status>=400&&r.status<500;e.retryable=method==='GET'&&(r.status===429||r.status>=500);throw e;}return r.json();
 }
