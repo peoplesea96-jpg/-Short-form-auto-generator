@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+const dir=mkdtempSync(path.join(tmpdir(),'frame-output-'));process.env.DATA_DIR=dir;
+const {db}=await import('../server/db.mjs');
+const {outputProfile,outputScale}=await import('../server/output-settings.mjs');
+test('legacy and new projects default to a 1080 by 1920 vertical export',()=>{assert.equal(outputProfile({}).width,1080);assert.equal(outputProfile({}).height,1920);assert.match(outputScale({}),/flags=lanczos/);});
+test('720p export stays distinct from generation model resolution',()=>{const p={outputResolution:'720p',generationSettings:{video:{resolution:'1080p'}}};assert.equal(outputProfile(p).width,720);assert.equal(outputProfile(p).height,1280);assert.match(outputScale(p),/crop=720:1280/);assert.equal(p.generationSettings.video.resolution,'1080p');});
+test('unsupported output sizes cannot become render parameters',()=>{for(const resolution of ['4k','1080:1920;evil','',1080])assert.throws(()=>outputProfile({outputResolution:resolution}),/해상도/);});
+test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});

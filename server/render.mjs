@@ -1,3 +1,5 @@
+import sharp from 'sharp';
+import {outputProfile,outputScale} from './output-settings.mjs';
 import {assertMusicReady,musicMix} from './music.mjs';
 import {validateShots} from './creative-structure.mjs';
 import {spawn} from 'node:child_process';
@@ -12,6 +14,7 @@ const assText=s=>s.replace(/[{}\\\r]/g,'').replace(/\n/g,'\\N').replace(/(.{20})
 const time=s=>`${Math.floor(s/3600)}:${String(Math.floor(s/60)%60).padStart(2,'0')}:${(s%60).toFixed(2).padStart(5,'0')}`;
 export async function merge(p){
  assertMusicReady(p);
+ const profile=outputProfile(p);
  const tmp=await mkdtemp(path.join(dataDir,'render-'));
  try{
   await mkdir(path.join(tmp,'fonts'));
@@ -25,7 +28,7 @@ export async function merge(p){
    for(let j=0;j<scene.shots.length;j++){
     const shot=scene.shots[j];assert(shot.video?.id,'모든 샷의 영상을 먼저 생성해 주세요.');const actual=await duration(shot.video.id,'video'),seconds=Math.round(shot.seconds*FPS)/FPS;
     assert(actual+1/FPS>=seconds||p.freezeShortClips,`씬 ${i+1} 샷 ${j+1}: 영상 길이가 부족합니다. 재생성하거나 마지막 화면 유지를 선택해 주세요.`);
-    const filename=`shot-${i}-${j}.mp4`;await run(process.env.FFMPEG_PATH||'ffmpeg',['-y','-i',filePath(shot.video.id),'-an','-vf','setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30'+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS','-frames:v',String(Math.round(seconds*FPS)),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',filename],tmp);parts.push(`file '${filename}'`);
+    const filename=`shot-${i}-${j}.mp4`;await run(process.env.FFMPEG_PATH||'ffmpeg',['-y','-i',filePath(shot.video.id),'-an','-vf','setpts=PTS-STARTPTS,'+outputScale(p)+''+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS','-frames:v',String(Math.round(seconds*FPS)),'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p',filename],tmp);parts.push(`file '${filename}'`);
    }
    const list=`shots-${i}.txt`,output=`visual-${i}.mp4`;await writeFile(path.join(tmp,list),parts.join('\n'));await run(process.env.FFMPEG_PATH||'ffmpeg',['-y','-f','concat','-safe','1','-i',list,'-c','copy',output],tmp);scenePaths.set(scene.id,path.join(tmp,output));
   }
@@ -40,8 +43,8 @@ export async function merge(p){
    const s=p.scenes[i],seconds=sceneDurations[i];
    assert((scenePaths.has(s.id)||s.video?.id)&&s.audio?.id,'영상과 음성이 모두 필요합니다.');
    const args=['-y','-i',scenePaths.get(s.id)||filePath(s.video.id),'-i',filePath(s.audio.id)];
-   const filter='[0:v]setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30'+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS[v]';
-   args.push('-filter_complex',filter,'-map','[v]','-map','1:a:0','-af','asetpts=PTS-STARTPTS,apad','-t',String(seconds),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','2',`scene-${i}.mp4`);
+   const filter='[0:v]setpts=PTS-STARTPTS,'+outputScale(p)+''+(p.freezeShortClips?',tpad=stop_mode=clone:stop_duration='+seconds:'')+',trim=duration='+seconds+',setpts=PTS-STARTPTS[v]';
+   args.push('-filter_complex',filter,'-map','[v]','-map','1:a:0','-af','asetpts=PTS-STARTPTS,apad','-t',String(seconds),'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','2',`scene-${i}.mp4`);
    await run(process.env.FFMPEG_PATH||'ffmpeg',args,tmp);
    events.push(`Dialogue: 0,${time(start)},${time(start+seconds)},Default,,0,0,0,,${assText(s.narration)}`);
    start+=seconds;
@@ -54,11 +57,11 @@ export async function merge(p){
   const args=['-y','-f','concat','-safe','1','-i','list.txt'];
   if(p.bgm==='ambient')args.push('-f','lavfi','-i',`aevalsrc=0.08*(sin(2*PI*220*t)+0.6*sin(2*PI*277.18*t)+0.4*sin(2*PI*329.63*t))*(0.65+0.35*sin(2*PI*0.08*t)):s=48000:d=${target}`);
   if(p.bgm==='generated')args.push('-stream_loop','-1','-i',filePath(p.music.track.id));
-  args.push('-vf','ass=captions.ass:fontsdir=fonts');
+  args.push('-vf',outputScale(p)+',ass=captions.ass:fontsdir=fonts');
   if(p.bgm==='generated')args.push('-filter_complex',musicMix(p,target),'-map','0:v','-map','[a]');
   else if(p.bgm==='ambient')args.push('-filter_complex',`[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[voice];[1:a]volume=${p.bgmVolume*.08}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`,'-map','0:v','-map','[a]');
   else args.push('-af','loudnorm=I=-16:TP=-1.5:LRA=11');
-  args.push('-t',String(target),'-r','30','-c:v','libx264','-preset','fast','-c:a','aac','-movflags','+faststart','final.mp4');
+  args.push('-t',String(target),'-r','30','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','final.mp4');
   await run(process.env.FFMPEG_PATH||'ffmpeg',args,tmp);
   const check=await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-i','final.mp4','-map','0:v:0','-f','null','-','-progress','pipe:1'],tmp);
   const count=Math.max(...[...check.matchAll(/frame=(\d+)/g)].map(m=>Number(m[1])));
@@ -66,6 +69,9 @@ export async function merge(p){
   const audioCheck=await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-i','final.mp4','-map','0:a:0','-f','null','-','-progress','pipe:1'],tmp);
   const audioSeconds=Math.max(...[...audioCheck.matchAll(/out_time_us=(\d+)/g)].map(m=>Number(m[1])/1e6));
   assert(Number.isFinite(audioSeconds)&&Math.abs(audioSeconds-target)<.15,'합성 음성 길이가 목표와 다릅니다. 결과를 저장하지 않았습니다.');
+  await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-y','-i','final.mp4','-frames:v','1','output-check.png'],tmp);
+  const pixels=await sharp(path.join(tmp,'output-check.png')).metadata();
+  assert(pixels.width===profile.width&&pixels.height===profile.height,'최종 출력 해상도가 설정과 다릅니다. 결과를 저장하지 않았습니다.');
   return await readFile(path.join(tmp,'final.mp4'));
  }finally{await rm(tmp,{recursive:true,force:true});}
 }
