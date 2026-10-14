@@ -23576,6 +23576,28 @@ function Studio(_ref) {
                   };
                 }())
               }), /*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
+                children: ["\uCD5C\uC885 \uCD9C\uB825 \uD574\uC0C1\uB3C4", /*#__PURE__*/(0,jsx_runtime.jsxs)("select", {
+                  "aria-label": "\uCD5C\uC885 \uCD9C\uB825 \uD574\uC0C1\uB3C4",
+                  value: project.outputResolution || '1080p',
+                  disabled: busy || working,
+                  onChange: function onChange(e) {
+                    setProject(Studio_objectSpread(Studio_objectSpread({}, project), {}, {
+                      outputResolution: e.target.value
+                    }));
+                    setDirty(true);
+                  },
+                  children: [/*#__PURE__*/(0,jsx_runtime.jsx)("option", {
+                    value: "1080p",
+                    children: "1080p \xB7 1080\xD71920 \xB7 \uACE0\uD654\uC9C8 \uC5C5\uC2A4\uCF00\uC77C\uB9C1 (\uCD94\uCC9C)"
+                  }), /*#__PURE__*/(0,jsx_runtime.jsx)("option", {
+                    value: "720p",
+                    children: "720p \xB7 720\xD71280"
+                  })]
+                })]
+              }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
+                className: "muted",
+                children: "\uC6D0\uBCF8 \uC7A5\uBA74\uC774 720p\uC5EC\uB3C4 \uCD5C\uC885 \uD569\uC131\uC5D0\uC11C 1080p\uB85C \uD655\uB300\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC120\uBA85\uD55C \uC790\uB9C9\uC744 \uB354\uD558\uACE0 \uACE0\uD654\uC9C8\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4. \uC6D0\uBCF8\uC5D0 \uC5C6\uB294 \uB514\uD14C\uC77C\uC744 \uBCF5\uC6D0\uD558\uB294 AI \uC5C5\uC2A4\uCF00\uC77C\uB9C1\uC740 \uC544\uB2D9\uB2C8\uB2E4."
+              }), /*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
                 children: ["\uBC30\uACBD\uC74C", /*#__PURE__*/(0,jsx_runtime.jsxs)("select", {
                   value: project.bgm,
                   onChange: function onChange(e) {
@@ -23636,6 +23658,7 @@ function Studio(_ref) {
                           _context13.t0 = setProject;
                           _context13.next = 7;
                           return Studio_api("projects/".concat(project.id, "/settings"), {
+                            outputResolution: project.outputResolution || '1080p',
                             bgm: project.bgm,
                             volume: project.bgmVolume,
                             freezeShortClips: !!project.freezeShortClips
@@ -23697,7 +23720,7 @@ function Studio(_ref) {
                       size: 16
                     }), "MP4 \uB2E4\uC6B4\uB85C\uB4DC"]
                   }), /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
-                    children: [new Date(f.expires).toLocaleDateString('ko-KR'), "\uAE4C\uC9C0 \uBCF4\uAD00 \xB7 ", f.versionName || '원본 버전', " \xB7 \uC81C\uC791 \uAE30\uB85D ", f.revision, " \xB7 ", f.composition ? f.composition.bgm === 'generated' ? 'Lyria 음악 포함' : f.composition.bgm === 'ambient' ? '앰비언트 포함' : '배경음악 없음' : '음악 기록 없음 · 이전 완성본']
+                    children: [new Date(f.expires).toLocaleDateString('ko-KR'), "\uAE4C\uC9C0 \uBCF4\uAD00 \xB7 ", f.versionName || '원본 버전', " \xB7 \uC81C\uC791 \uAE30\uB85D ", f.revision, " \xB7 ", f.output ? "".concat(f.output.resolution, " (").concat(f.output.width, "\xD7").concat(f.output.height, ")") : '해상도 기록 없음 · 이전 완성본', " \xB7 ", f.composition ? f.composition.bgm === 'generated' ? 'Lyria 음악 포함' : f.composition.bgm === 'ambient' ? '앰비언트 포함' : '배경음악 없음' : '음악 기록 없음 · 이전 완성본']
                   })]
                 }, f.id);
               })]
@@ -24028,6 +24051,8 @@ function Studio(_ref) {
               })]
             }, sid);
           })
+        }), quote.output && /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
+          children: ["\uCD5C\uC885 \uCD9C\uB825: ", quote.output.resolution, " \xB7 ", quote.output.width, "\xD7", quote.output.height, " \xB7 \uACE0\uD654\uC9C8 \uD655\uB300\xB7\uD569\uC131 (\uC678\uBD80 \uC0DD\uC131 API \uCD94\uAC00 \uBE44\uC6A9 \uC5C6\uC74C)"]
         }), quote.music && /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
           children: ["Lyria \xB7 ", quote.music.model, " \xB7 \uBAA9\uD45C ", quote.music.seconds, "\uCD08 \xB7 \uBB34\uAC00\uC0AC \uC5F0\uC8FC\uACE1 1\uAC1C \xB7 \uC694\uC728 \uD655\uC778 ", quote.music.priceDate]
         }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
@@ -24830,6 +24855,7 @@ window.fetch = /*#__PURE__*/function () {
             break;
           }
           Object.assign(_p, {
+            outputResolution: body.outputResolution || '1080p',
             bgm: body.bgm,
             bgmVolume: body.volume,
             freezeShortClips: body.freezeShortClips
@@ -24934,6 +24960,11 @@ window.fetch = /*#__PURE__*/function () {
             revision: _p.revision,
             kind: body.kind,
             scene: body.scene,
+            output: body.kind === 'merge' ? {
+              resolution: _p.outputResolution || '1080p',
+              width: _p.outputResolution === '720p' ? 720 : 1080,
+              height: _p.outputResolution === '720p' ? 1280 : 1920
+            } : undefined,
             amount: 0,
             generations: generations,
             budget: {
