@@ -20,8 +20,9 @@ const sign=q=>createHmac('sha256',signingKey()).update('marketing-quote:'+JSON.s
 function previewUrl(value){try{const u=pageUrl(value);return u.href;}catch{return null;}}
 export function normalizePreset(p){
  if(!p||!z.uuid().safeParse(p.id).success||typeof p.name!=='string'||p.type&&p.type!=='ads')return null;
- const image=p.preview_url||p.thumbnail_url||p.image_url||p.preview_image_url||p.cover_image_url||(typeof p.thumbnail==='string'?p.thumbnail:p.thumbnail?.url)||(typeof p.image==='string'?p.image:p.image?.url)||(typeof p.preview==='string'?p.preview:p.preview?.url);
- return {id:p.id,name:p.name.slice(0,160),description:typeof p.description==='string'?p.description.slice(0,500):'',preview:typeof image==='string'?previewUrl(image):null};
+ const image=p.cover_image?.url||p.preview_url||p.thumbnail_url||p.image_url||p.preview_image_url||p.cover_image_url||(typeof p.thumbnail==='string'?p.thumbnail:p.thumbnail?.url)||(typeof p.image==='string'?p.image:p.image?.url)||(typeof p.preview==='string'?p.preview:p.preview?.url);
+ const preview=typeof image==='string'?previewUrl(image):null;
+ return {id:p.id,name:p.name.slice(0,160),description:typeof p.description==='string'?p.description.slice(0,500):'',preview,previewSource:preview?'provider':null,aspectRatio:typeof p.metadata?.aspect_ratio==='string'?p.metadata.aspect_ratio.slice(0,20):null};
 }
 export async function marketingCatalog({force=false,call=request,pause=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  credentialReady();const account=hash(process.env.HIGGSFIELD_API_KEY);if(call===request&&!force&&cached?.account===account&&cached.expires>Date.now())return cached.data;
@@ -102,3 +103,4 @@ export async function downloadMarketing(result,{download=fetchPublic}={}){
  assert(['jpeg','png','webp'].includes(meta.format)&&meta.width&&meta.height,'광고 이미지 형식을 확인해 주세요.');
  return image.rotate().resize(1080,1920,{fit:'contain',background:'#ffffff'}).png().toBuffer();
 }
+export async function checkMarketingPreview(catalog){const p=catalog.items.find(p=>p.preview);if(!p)return {status:'missing'};try{const r=await fetchPublic(p.preview,{maxBytes:10*1024*1024,deadline:Date.now()+15000}),m=await sharp(r.buffer,{limitInputPixels:40000000}).metadata();return m.width&&m.height?{status:'verified',width:m.width,height:m.height,format:m.format}:{status:'unverified'};}catch{return {status:'unverified'};}}
