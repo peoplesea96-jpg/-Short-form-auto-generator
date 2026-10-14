@@ -12,6 +12,8 @@ import {fetchPublic,pageUrl} from './public-page.mjs';
 export const marketingEndpoint='marketing-studio/image/flare';
 const requestSchema=z.object({unit:z.string().min(1).max(100),asset:z.uuid(),preset:z.uuid(),prompt:z.string().trim().min(1).max(1500),resolution:z.enum(['1k','2k','4k']),quality:z.enum(['low','medium','high','xhigh','max']),count:z.number().int().min(1).max(3),reservePerImage:z.number().int().min(1).max(10000)}).strict();
 let cached=null;
+// Shape-only inspection: never persist or log provider values, URLs, prompts or credentials.
+export function inspectPresetShape(value){const fields=new Set(),httpsPaths=new Set();const visit=(v,path,depth)=>{if(depth>5||fields.size>=120)return;const type=Array.isArray(v)?'array':v===null?'null':typeof v;fields.add(path+':'+type);if(typeof v==='string'&&/^https:\/\//.test(v))httpsPaths.add(path);if(Array.isArray(v)){for(const child of v.slice(0,2))visit(child,path+'[]',depth+1);}else if(v&&typeof v==='object')for(const [key,child]of Object.entries(v).slice(0,40))visit(child,path+'.'+(/^[a-zA-Z0-9_-]{1,60}$/.test(key)?key:'[field]'),depth+1);};visit(value,'preset',0);return {fields:[...fields].sort(),httpsPaths:[...httpsPaths].sort()};}
 function credentialReady(){assert(/^[^\s:]+:[^\s:]+$/.test(process.env.HIGGSFIELD_API_KEY||''),'Higgsfield API 키 설정이 필요합니다.',503);}
 function signingKey(){assert((process.env.SESSION_SECRET||'').length>=32,'서명 키 설정이 필요합니다.',503);return process.env.SESSION_SECRET;}
 const sign=q=>createHmac('sha256',signingKey()).update('marketing-quote:'+JSON.stringify(q)).digest('hex');
@@ -23,17 +25,17 @@ export function normalizePreset(p){
 }
 export async function marketingCatalog({force=false,call=request,pause=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  credentialReady();const account=hash(process.env.HIGGSFIELD_API_KEY);if(call===request&&!force&&cached?.account===account&&cached.expires>Date.now())return cached.data;
- const items=[],seen=new Set(),cursors=new Set();let cursor=null,total=0;
+ const items=[],seen=new Set(),cursors=new Set(),fields=new Set(),httpsPaths=new Set();let cursor=null,total=0;
  for(let page=0;page<20;page++){
   let r;for(let attempt=0;attempt<3;attempt++){try{r=await call('/marketing-studio/image/presets?size=50'+(cursor!==null?'&cursor='+encodeURIComponent(cursor):''));break;}catch(e){if(attempt===2||!e.retryable)throw e;await pause(1000*2**attempt);}}
   assert(Array.isArray(r.items),'프리셋 목록 응답을 확인할 수 없습니다.',502);
   if(Number.isFinite(r.total))total=r.total;
-  for(const raw of r.items){const p=normalizePreset(raw);if(p&&!seen.has(p.id)){items.push(p);seen.add(p.id);}}
+  for(const raw of r.items){const shape=inspectPresetShape(raw);shape.fields.forEach(f=>{if(fields.size<120)fields.add(f);});shape.httpsPaths.forEach(f=>httpsPaths.add(f));const p=normalizePreset(raw);if(p&&!seen.has(p.id)){items.push(p);seen.add(p.id);}}
   cursor=r.cursor;if(cursor===null||cursor===undefined||cursor==='')break;
   assert(typeof cursor==='string'||Number.isSafeInteger(cursor)&&cursor>=0,'프리셋 cursor 형식을 확인할 수 없습니다.',502);cursor=String(cursor);
   assert(cursor.length<4096&&!cursors.has(cursor)&&page<19,'프리셋 목록 페이지를 확인할 수 없습니다.',502);cursors.add(cursor);
  }
- const data={items,total,checkedAt:Date.now(),generationVerified:false};if(call===request)cached={data,account,expires:Date.now()+60000};return data;
+ const data={items,total,checkedAt:Date.now(),generationVerified:false,diagnostics:{fields:[...fields].sort(),httpsPaths:[...httpsPaths].sort()}};if(call===request)cached={data,account,expires:Date.now()+60000};return data;
 }
 function planMarketing(owner,pid,value,preset){
  credentialReady();signingKey();pageUrl(process.env.APP_URL||'');
