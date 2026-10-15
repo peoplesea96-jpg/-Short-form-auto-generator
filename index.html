@@ -18613,12 +18613,17 @@ function _api() {
   return _api.apply(this, arguments);
 }
 function MarketingImages(_ref) {
-  var _units$, _project$assets$, _units$2, _project$generationSe, _selected$candidates, _project$assets$find;
+  var _units$, _project$assets$, _ref2, _draft$prompt, _units$2, _project$generationSe, _selected$candidates, _latestJob$error, _project$assets$find;
   var project = _ref.project,
     disabled = _ref.disabled,
     preview = _ref.preview,
     onRefresh = _ref.onRefresh,
-    launch = _ref.launch;
+    launch = _ref.launch,
+    draft = _ref.draft,
+    onDraftChange = _ref.onDraftChange,
+    onLaunchHandled = _ref.onLaunchHandled,
+    _ref$jobs = _ref.jobs,
+    jobs = _ref$jobs === void 0 ? [] : _ref$jobs;
   var units = project.scenes.flatMap(function (s, i) {
     var _s$shots;
     return (_s$shots = s.shots) !== null && _s$shots !== void 0 && _s$shots.length ? s.shots.map(function (shot, j) {
@@ -18630,22 +18635,22 @@ function MarketingImages(_ref) {
       label: "\uC52C ".concat(i + 1, " \xB7 ").concat(s.narration)
     })];
   });
-  var _useState = (0,react.useState)(((_units$ = units[0]) === null || _units$ === void 0 ? void 0 : _units$.id) || ''),
+  var _useState = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.unit) || ((_units$ = units[0]) === null || _units$ === void 0 ? void 0 : _units$.id) || ''),
     unit = _useState[0],
     setUnit = _useState[1],
-    _useState2 = (0,react.useState)(((_project$assets$ = project.assets[0]) === null || _project$assets$ === void 0 ? void 0 : _project$assets$.id) || ''),
+    _useState2 = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.asset) || ((_project$assets$ = project.assets[0]) === null || _project$assets$ === void 0 ? void 0 : _project$assets$.id) || ''),
     asset = _useState2[0],
     setAsset = _useState2[1],
-    _useState3 = (0,react.useState)(((_units$2 = units[0]) === null || _units$2 === void 0 ? void 0 : _units$2.visual) || ''),
+    _useState3 = (0,react.useState)((_ref2 = (_draft$prompt = draft === null || draft === void 0 ? void 0 : draft.prompt) !== null && _draft$prompt !== void 0 ? _draft$prompt : (_units$2 = units[0]) === null || _units$2 === void 0 ? void 0 : _units$2.visual) !== null && _ref2 !== void 0 ? _ref2 : ''),
     prompt = _useState3[0],
     setPrompt = _useState3[1],
-    _useState4 = (0,react.useState)(((_project$generationSe = project.generationSettings) === null || _project$generationSe === void 0 || (_project$generationSe = _project$generationSe.image) === null || _project$generationSe === void 0 ? void 0 : _project$generationSe.model) === 'marketing-flare' ? project.generationSettings.image.resolution : '2k'),
+    _useState4 = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.resolution) || (((_project$generationSe = project.generationSettings) === null || _project$generationSe === void 0 || (_project$generationSe = _project$generationSe.image) === null || _project$generationSe === void 0 ? void 0 : _project$generationSe.model) === 'marketing-flare' ? project.generationSettings.image.resolution : '2k')),
     resolution = _useState4[0],
     setResolution = _useState4[1],
-    _useState5 = (0,react.useState)('high'),
+    _useState5 = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.quality) || 'high'),
     quality = _useState5[0],
     setQuality = _useState5[1],
-    _useState6 = (0,react.useState)(2),
+    _useState6 = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.count) || 2),
     count = _useState6[0],
     setCount = _useState6[1],
     _useState7 = (0,react.useState)([]),
@@ -18654,7 +18659,7 @@ function MarketingImages(_ref) {
     _useState8 = (0,react.useState)(false),
     canManage = _useState8[0],
     setCanManage = _useState8[1],
-    _useState9 = (0,react.useState)(null),
+    _useState9 = (0,react.useState)((draft === null || draft === void 0 ? void 0 : draft.preset) || null),
     preset = _useState9[0],
     setPreset = _useState9[1],
     _useState10 = (0,react.useState)(false),
@@ -18675,11 +18680,30 @@ function MarketingImages(_ref) {
     _useState15 = (0,react.useState)(false),
     consent = _useState15[0],
     setConsent = _useState15[1];
+  var _useState16 = (0,react.useState)(null),
+    queuedRequest = _useState16[0],
+    setQueuedRequest = _useState16[1],
+    handledLaunch = (0,react.useRef)('');
   var selected = units.find(function (s) {
       return s.id === unit;
     }),
     blocked = disabled || pending;
   var candidates = (selected === null || selected === void 0 || (_selected$candidates = selected.candidates) === null || _selected$candidates === void 0 ? void 0 : _selected$candidates.image) || [];
+  var latestJob = jobs.find(function (j) {
+      return j.kind === 'marketing-image' && j.scene === unit;
+    }),
+    failedJob = (latestJob === null || latestJob === void 0 ? void 0 : latestJob.status) === 'failed' && ((_latestJob$error = latestJob.error) === null || _latestJob$error === void 0 ? void 0 : _latestJob$error.includes('(403)'));
+  (0,react.useEffect)(function () {
+    onDraftChange === null || onDraftChange === void 0 || onDraftChange({
+      unit: unit,
+      asset: asset,
+      prompt: prompt,
+      resolution: resolution,
+      quality: quality,
+      count: count,
+      preset: preset
+    });
+  }, [unit, asset, prompt, resolution, quality, count, preset]);
   (0,react.useEffect)(function () {
     var _project$assets$2;
     if (!units.some(function (s) {
@@ -18798,27 +18822,41 @@ function MarketingImages(_ref) {
     return _openGallery.apply(this, arguments);
   }
   (0,react.useEffect)(function () {
-    if (!launch) return;
+    if (!launch || handledLaunch.current === launch.token) return;
+    handledLaunch.current = launch.token;
     var next = units.find(function (s) {
       return s.id === launch.unit;
-    }) || units[0];
-    if (next) {
-      setUnit(next.id);
-      setPrompt(next.visual || '');
+    }) || selected || units[0];
+    var request = {
+      unit: (next === null || next === void 0 ? void 0 : next.id) || unit,
+      prompt: (next === null || next === void 0 ? void 0 : next.id) === unit ? prompt : (next === null || next === void 0 ? void 0 : next.visual) || '',
+      resolution: launch.intent === 'generate' && (next === null || next === void 0 ? void 0 : next.id) === unit ? resolution : launch.resolution || '2k'
+    };
+    setUnit(request.unit);
+    setPrompt(request.prompt);
+    setResolution(request.resolution);
+    onLaunchHandled === null || onLaunchHandled === void 0 || onLaunchHandled();
+    if (launch.intent === 'generate' && preset) {
+      void quote(request);
+    } else {
+      setQueuedRequest(launch.intent === 'generate' ? request : null);
+      void openGallery();
     }
-    setResolution(launch.resolution || '2k');
-    void openGallery();
   }, [launch === null || launch === void 0 ? void 0 : launch.token]);
   function quote() {
     return _quote.apply(this, arguments);
   }
   function _quote() {
     _quote = asyncToGenerator_default()(/*#__PURE__*/regenerator_default().mark(function _callee9() {
+      var overrides,
+        _args9 = arguments;
       return regenerator_default().wrap(function _callee9$(_context9) {
         while (1) switch (_context9.prev = _context9.next) {
           case 0:
-            _context9.next = 2;
+            overrides = _args9.length > 0 && _args9[0] !== undefined ? _args9[0] : {};
+            _context9.next = 3;
             return task(/*#__PURE__*/asyncToGenerator_default()(/*#__PURE__*/regenerator_default().mark(function _callee8() {
+              var _ref10, _overrides$prompt;
               var value;
               return regenerator_default().wrap(function _callee8$(_context8) {
                 while (1) switch (_context8.prev = _context8.next) {
@@ -18831,11 +18869,11 @@ function MarketingImages(_ref) {
                   case 2:
                     _context8.next = 4;
                     return api("projects/".concat(project.id, "/marketing-quote"), {
-                      unit: unit,
+                      unit: overrides.unit || unit,
                       asset: asset,
-                      preset: preset.id,
-                      prompt: prompt,
-                      resolution: resolution,
+                      preset: (_ref10 = overrides.preset || preset) === null || _ref10 === void 0 ? void 0 : _ref10.id,
+                      prompt: (_overrides$prompt = overrides.prompt) !== null && _overrides$prompt !== void 0 ? _overrides$prompt : prompt,
+                      resolution: overrides.resolution || resolution,
                       quality: quality,
                       count: count
                     });
@@ -18852,7 +18890,7 @@ function MarketingImages(_ref) {
                 }
               }, _callee8);
             })));
-          case 2:
+          case 3:
           case "end":
             return _context9.stop();
         }
@@ -18931,7 +18969,10 @@ function MarketingImages(_ref) {
         }), /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
           type: "button",
           disabled: blocked,
-          onClick: openGallery,
+          onClick: function onClick() {
+            setQueuedRequest(null);
+            void openGallery();
+          },
           children: preset ? '프리셋 변경' : '프리셋 선택'
         })]
       })]
@@ -18949,6 +18990,7 @@ function MarketingImages(_ref) {
       className: "two-col",
       children: [/*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
         children: ["\uC0DD\uC131 \uD574\uC0C1\uB3C4", /*#__PURE__*/(0,jsx_runtime.jsx)("select", {
+          "aria-label": "\uAD11\uACE0 \uC774\uBBF8\uC9C0 \uC0DD\uC131 \uD574\uC0C1\uB3C4",
           value: resolution,
           disabled: blocked,
           onChange: function onChange(e) {
@@ -18964,6 +19006,7 @@ function MarketingImages(_ref) {
         })]
       }), /*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
         children: ["\uC0DD\uC131 \uD488\uC9C8", /*#__PURE__*/(0,jsx_runtime.jsx)("select", {
+          "aria-label": "\uAD11\uACE0 \uC774\uBBF8\uC9C0 \uC0DD\uC131 \uD488\uC9C8",
           value: quality,
           disabled: blocked,
           onChange: function onChange(e) {
@@ -18975,10 +19018,10 @@ function MarketingImages(_ref) {
             high: '높음',
             xhigh: '매우 높음',
             max: '최대'
-          }).map(function (_ref2) {
-            var _ref3 = slicedToArray_default()(_ref2, 2),
-              k = _ref3[0],
-              v = _ref3[1];
+          }).map(function (_ref3) {
+            var _ref4 = slicedToArray_default()(_ref3, 2),
+              k = _ref4[0],
+              v = _ref4[1];
             return /*#__PURE__*/(0,jsx_runtime.jsx)("option", {
               value: k,
               children: v
@@ -19020,8 +19063,23 @@ function MarketingImages(_ref) {
     }), /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
       className: "primary",
       disabled: blocked || !preset || !asset || !(selected !== null && selected !== void 0 && selected.scriptApproved) || !prompt.trim(),
-      onClick: quote,
+      onClick: function onClick() {
+        return void quote();
+      },
       children: "\uD6C4\uBCF4 \uC0DD\uC131\uD558\uAE30"
+    }), failedJob && /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
+      role: "alert",
+      className: "marketing-error",
+      children: [/*#__PURE__*/(0,jsx_runtime.jsx)("strong", {
+        children: "Higgsfield\uAC00 \uC0DD\uC131 \uC694\uCCAD\uC744 \uAC70\uC808\uD588\uC2B5\uB2C8\uB2E4 (403)."
+      }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
+        children: "\uD504\uB9AC\uC14B\uC744 \uB2E4\uC2DC \uC120\uD0DD\uD560 \uBB38\uC81C\uAC00 \uC544\uB2D9\uB2C8\uB2E4. API \uC794\uC561\uACFC \uACC4\uC815 \uC0AC\uC6A9 \uC81C\uD55C\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694. \uC6F9\uC0AC\uC774\uD2B8 \uAD6C\uB3C5 \uD06C\uB808\uB527\uACFC API \uC794\uC561\uC740 \uBCC4\uAC1C\uC785\uB2C8\uB2E4."
+      }), /*#__PURE__*/(0,jsx_runtime.jsx)("a", {
+        href: "https://open.higgsfield.ai/billing",
+        target: "_blank",
+        rel: "noreferrer",
+        children: "Higgsfield API \uACB0\uC81C\xB7\uC794\uC561 \uD655\uC778 \u2197"
+      })]
     }), message && /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
       role: "status",
       children: message
@@ -19115,11 +19173,19 @@ function MarketingImages(_ref) {
       error: error,
       canManage: canManage,
       onClose: function onClose() {
-        return setGallery(false);
+        setGallery(false);
+        setQueuedRequest(null);
       },
       onSelect: function onSelect(p) {
         setPreset(p);
         setGallery(false);
+        if (queuedRequest) {
+          var request = queuedRequest;
+          setQueuedRequest(null);
+          void quote(MarketingImages_objectSpread(MarketingImages_objectSpread({}, request), {}, {
+            preset: p
+          }));
+        }
       },
       onReload: loadPresets
     }), ticket && /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
@@ -23036,13 +23102,18 @@ function Studio(_ref) {
     setModels = _useState17[1];
   var _useState18 = (0,react.useState)(null),
     marketingLaunch = _useState18[0],
-    setMarketingLaunch = _useState18[1];
+    setMarketingLaunch = _useState18[1],
+    _useState19 = (0,react.useState)(null),
+    marketingDraft = _useState19[0],
+    setMarketingDraft = _useState19[1];
   function openMarketing(unit) {
     var resolution = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '2k';
+    var intent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'configure';
     setStep(2);
     setMarketingLaunch({
       unit: unit,
       resolution: resolution,
+      intent: intent,
       token: crypto.randomUUID()
     });
     setTimeout(function () {
@@ -23058,10 +23129,10 @@ function Studio(_ref) {
       return setModels(d.models);
     })["catch"](function () {});
   }, [logged, preview]);
-  var _useState19 = (0,react.useState)(null),
-    detailDraft = _useState19[0],
-    setDetailDraft = _useState19[1];
-  var _useState20 = (0,react.useState)({
+  var _useState20 = (0,react.useState)(null),
+    detailDraft = _useState20[0],
+    setDetailDraft = _useState20[1];
+  var _useState21 = (0,react.useState)({
       title: '',
       kind: 'hybrid',
       description: '',
@@ -23073,8 +23144,8 @@ function Studio(_ref) {
       duration: 30,
       generationSettings: defaultGeneration
     }),
-    brief = _useState20[0],
-    setBrief = _useState20[1];
+    brief = _useState21[0],
+    setBrief = _useState21[1];
   function task(_x4) {
     return _task.apply(this, arguments);
   }
@@ -23192,6 +23263,7 @@ function Studio(_ref) {
   }, [project === null || project === void 0 ? void 0 : project.id, preview, dirty]);
   function open(p) {
     setMarketingLaunch(null);
+    setMarketingDraft(null);
     setProject(p);
     setStep(p.scenes.length ? 1 : 0);
     setDirty(false);
@@ -23400,8 +23472,8 @@ function Studio(_ref) {
               _context20.next = 12;
               break;
             }
-            openMarketing(target.id, (((_target$generationSet = target.generationSettings) === null || _target$generationSet === void 0 ? void 0 : _target$generationSet.image) || project.generationSettings.image).resolution);
-            setNotice('Higgsfield 광고 이미지는 장면별로 프리셋과 예산을 확인한 뒤 생성합니다.');
+            openMarketing(target.id, (((_target$generationSet = target.generationSettings) === null || _target$generationSet === void 0 ? void 0 : _target$generationSet.image) || project.generationSettings.image).resolution, 'generate');
+            setNotice('선택한 프리셋과 생성 조건을 확인한 뒤 광고 이미지 후보를 생성합니다.');
             return _context20.abrupt("return");
           case 12:
             if (!preview) {
@@ -23535,8 +23607,9 @@ function Studio(_ref) {
             setModal(false);
             setDetailDraft(null);
             setMarketingLaunch(null);
+            setMarketingDraft(null);
             setStep(0);
-          case 13:
+          case 14:
           case "end":
             return _context23.stop();
         }
@@ -24582,6 +24655,12 @@ function Studio(_ref) {
             }) : step >= 2 && step <= 4 ? /*#__PURE__*/(0,jsx_runtime.jsxs)(jsx_runtime.Fragment, {
               children: [step === 2 && /*#__PURE__*/(0,jsx_runtime.jsx)(MarketingImages, {
                 launch: marketingLaunch,
+                draft: marketingDraft,
+                onDraftChange: setMarketingDraft,
+                onLaunchHandled: function onLaunchHandled() {
+                  return setMarketingLaunch(null);
+                },
+                jobs: jobs,
                 project: project,
                 disabled: busy || working || dirty,
                 preview: preview,
