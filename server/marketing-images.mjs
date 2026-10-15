@@ -10,7 +10,7 @@ import {signedUrl} from './media.mjs';
 import {fetchPublic,pageUrl} from './public-page.mjs';
 
 export const marketingEndpoint='marketing-studio/image/flare';
-const requestSchema=z.object({unit:z.string().min(1).max(100),asset:z.uuid(),preset:z.uuid(),prompt:z.string().trim().min(1).max(1500),resolution:z.enum(['1k','2k','4k']),quality:z.enum(['low','medium','high','xhigh','max']),count:z.number().int().min(1).max(3),reservePerImage:z.number().int().min(1).max(10000)}).strict();
+const requestSchema=z.object({unit:z.string().min(1).max(100),asset:z.uuid(),preset:z.uuid(),prompt:z.string().trim().min(1).max(1500),resolution:z.enum(['1k','2k','4k']),quality:z.enum(['low','medium','high','xhigh','max']),count:z.number().int().min(1).max(3)}).strict();
 let cached=null;
 // Shape-only inspection: never persist or log provider values, URLs, prompts or credentials.
 export function inspectPresetShape(value){const fields=new Set(),httpsPaths=new Set();const visit=(v,path,depth)=>{if(depth>5||fields.size>=120)return;const type=Array.isArray(v)?'array':v===null?'null':typeof v;fields.add(path+':'+type);if(typeof v==='string'&&/^https:\/\//.test(v))httpsPaths.add(path);if(Array.isArray(v)){for(const child of v.slice(0,2))visit(child,path+'[]',depth+1);}else if(v&&typeof v==='object')for(const [key,child]of Object.entries(v).slice(0,40))visit(child,path+'.'+(/^[a-zA-Z0-9_-]{1,60}$/.test(key)?key:'[field]'),depth+1);};visit(value,'preset',0);return {fields:[...fields].sort(),httpsPaths:[...httpsPaths].sort()};}
@@ -48,12 +48,12 @@ function planMarketing(owner,pid,value,preset){
  assert(preset?.id===r.preset,'사용할 수 있는 프리셋을 다시 선택해 주세요.',409);
  const asset=p.assets.find(a=>a.id===r.asset),file=db.prepare('SELECT * FROM files WHERE id=?').get(r.asset);
  assert(asset&&file?.owner===owner&&file?.project===pid&&file.expires>Date.now()&&['image/png','image/jpeg','image/webp'].includes(file.mime),'유효한 상품 참고 이미지를 선택해 주세요.');
- return {project:p,unit:found.unit,request:r,preset:{id:preset.id,name:preset.name},amount:r.count*r.reservePerImage,fingerprint:inputFingerprint(p,found.unit,'image')};
+ return {project:p,unit:found.unit,request:r,preset:{id:preset.id,name:preset.name},fingerprint:inputFingerprint(p,found.unit,'image')};
 }
 export async function quoteMarketing(owner,pid,value){
  getProject(pid,owner);value=requestSchema.parse(value);const catalog=await marketingCatalog();const plan=planMarketing(owner,pid,value,catalog.items.find(p=>p.id===value.preset));
  assert(!active(plan.project),'진행 중인 작업을 먼저 확인해 주세요.',409);
- const q={kind:'marketing-image',project:pid,revision:plan.project.revision,request:plan.request,preset:plan.preset,amount:plan.amount,fingerprint:plan.fingerprint,expires:Date.now()+600000,costType:'reservation'};
+ const q={kind:'marketing-image',project:pid,revision:plan.project.revision,request:plan.request,preset:plan.preset,amount:null,fingerprint:plan.fingerprint,expires:Date.now()+600000,costType:'post-generation'};
  return {...q,signature:sign(q),budget:budget(owner,pid)};
 }
 export function settleMarketing(jid,actual){return tx(()=>{
@@ -71,16 +71,16 @@ export async function enqueueMarketing(owner,pid,q,idem){
  const prior=db.prepare('SELECT * FROM jobs WHERE idem=?').get(idem);if(prior){assert(prior.owner===owner&&prior.project===pid&&prior.kind==='marketing-image','잘못된 요청 ID입니다.');return {id:prior.id,status:prior.status};}
  const {signature,budget:ignored,...signed}=q||{};
  assert(typeof signature==='string'&&/^[a-f0-9]{64}$/.test(signature)&&timingSafeEqual(Buffer.from(signature),Buffer.from(sign(signed))),'비용 확인 정보가 유효하지 않습니다.');
- assert(signed.project===pid&&signed.kind==='marketing-image'&&signed.expires>Date.now(),'비용을 다시 확인해 주세요.',409);
+ assert(signed.project===pid&&signed.kind==='marketing-image'&&signed.expires>Date.now()&&signed.costType==='post-generation'&&signed.amount===null,'생성 조건을 다시 확인해 주세요.',409);
  const catalog=await marketingCatalog({force:true});
  return tx(()=>{
   const duplicate=db.prepare('SELECT * FROM jobs WHERE idem=?').get(idem);if(duplicate){assert(duplicate.owner===owner&&duplicate.project===pid&&duplicate.kind==='marketing-image','잘못된 요청 ID입니다.');return {id:duplicate.id,status:duplicate.status};}
   const plan=planMarketing(owner,pid,signed.request,catalog.items.find(p=>p.id===signed.request.preset));
-  assert(plan.project.revision===signed.revision&&plan.fingerprint===signed.fingerprint&&plan.amount===signed.amount&&plan.preset.name===signed.preset.name,'내용이 변경되었습니다. 비용을 다시 확인해 주세요.',409);
+  assert(plan.project.revision===signed.revision&&plan.fingerprint===signed.fingerprint&&plan.preset.name===signed.preset.name,'내용이 변경되었습니다. 생성 조건을 다시 확인해 주세요.',409);
   assert(!active(plan.project),'이미 진행 중인 작업이 있습니다.',409);
-  const b=budget(owner,pid);assert(b.project+plan.amount<=10000&&b.month+plan.amount<=100000,'프로젝트 또는 월간 예약 예산 한도를 초과합니다.');
-  const jid=id(),now=Date.now();const input={project:plan.project,selected:[plan.unit],marketing:{...plan.request,preset:plan.preset,fingerprint:plan.fingerprint}};
-  db.prepare('INSERT INTO jobs(id,project,owner,kind,scene,revision,input,status,reserved,month,created,updated,idem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(jid,pid,owner,'marketing-image',plan.unit.id,plan.project.revision,JSON.stringify(input),'queued',plan.amount,month(),now,now,idem);
+  const b=budget(owner,pid);assert(b.project<10000&&b.month<100000,'기존 사용 비용이 프로젝트 또는 월간 한도에 도달했습니다. 운영자에게 문의해 주세요.');
+  const jid=id(),now=Date.now();const input={project:plan.project,selected:[plan.unit],marketing:{...plan.request,costType:'post-generation',preset:plan.preset,fingerprint:plan.fingerprint}};
+  db.prepare('INSERT INTO jobs(id,project,owner,kind,scene,revision,input,status,reserved,month,created,updated,idem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(jid,pid,owner,'marketing-image',plan.unit.id,plan.project.revision,JSON.stringify(input),'queued',0,month(),now,now,idem);
   audit(owner,'enqueue.marketing-image',pid);return {id:jid,status:'queued'};
  });
 }
