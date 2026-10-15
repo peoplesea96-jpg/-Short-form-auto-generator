@@ -18646,36 +18646,33 @@ function MarketingImages(_ref) {
     _useState6 = (0,react.useState)(2),
     count = _useState6[0],
     setCount = _useState6[1],
-    _useState7 = (0,react.useState)(''),
-    reserve = _useState7[0],
-    setReserve = _useState7[1],
-    _useState8 = (0,react.useState)([]),
-    presets = _useState8[0],
-    setPresets = _useState8[1],
-    _useState9 = (0,react.useState)(false),
-    canManage = _useState9[0],
-    setCanManage = _useState9[1],
-    _useState10 = (0,react.useState)(null),
-    preset = _useState10[0],
-    setPreset = _useState10[1],
+    _useState7 = (0,react.useState)([]),
+    presets = _useState7[0],
+    setPresets = _useState7[1],
+    _useState8 = (0,react.useState)(false),
+    canManage = _useState8[0],
+    setCanManage = _useState8[1],
+    _useState9 = (0,react.useState)(null),
+    preset = _useState9[0],
+    setPreset = _useState9[1],
+    _useState10 = (0,react.useState)(false),
+    gallery = _useState10[0],
+    setGallery = _useState10[1],
     _useState11 = (0,react.useState)(false),
-    gallery = _useState11[0],
-    setGallery = _useState11[1],
-    _useState12 = (0,react.useState)(false),
-    pending = _useState12[0],
-    setPending = _useState12[1],
+    pending = _useState11[0],
+    setPending = _useState11[1],
+    _useState12 = (0,react.useState)(''),
+    error = _useState12[0],
+    setError = _useState12[1],
     _useState13 = (0,react.useState)(''),
-    error = _useState13[0],
-    setError = _useState13[1],
-    _useState14 = (0,react.useState)(''),
-    message = _useState14[0],
-    setMessage = _useState14[1],
-    _useState15 = (0,react.useState)(null),
-    ticket = _useState15[0],
-    setTicket = _useState15[1],
-    _useState16 = (0,react.useState)(false),
-    consent = _useState16[0],
-    setConsent = _useState16[1];
+    message = _useState13[0],
+    setMessage = _useState13[1],
+    _useState14 = (0,react.useState)(null),
+    ticket = _useState14[0],
+    setTicket = _useState14[1],
+    _useState15 = (0,react.useState)(false),
+    consent = _useState15[0],
+    setConsent = _useState15[1];
   var selected = units.find(function (s) {
       return s.id === unit;
     }),
@@ -18838,8 +18835,7 @@ function MarketingImages(_ref) {
                       prompt: prompt,
                       resolution: resolution,
                       quality: quality,
-                      count: count,
-                      reservePerImage: Number(reserve)
+                      count: count
                     });
                   case 4:
                     value = _context8.sent;
@@ -19005,31 +19001,25 @@ function MarketingImages(_ref) {
             }, n);
           })
         })]
-      }), /*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
-        children: ["\uD6C4\uBCF4 1\uAC1C\uB2F9 \uC608\uC57D \uC608\uC0B0 (\uC6D0)", /*#__PURE__*/(0,jsx_runtime.jsx)("input", {
-          "aria-label": "\uAD11\uACE0 \uC774\uBBF8\uC9C0 \uC608\uC57D \uC608\uC0B0",
-          type: "number",
-          min: 1,
-          max: 10000,
-          step: 1,
-          placeholder: "\uC608\uC57D\uD560 \uAE08\uC561 \uC785\uB825",
-          value: reserve,
-          disabled: blocked,
-          onChange: function onChange(e) {
-            return setReserve(e.target.value);
-          }
+      }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
+        children: [/*#__PURE__*/(0,jsx_runtime.jsx)("strong", {
+          children: "\uBE44\uC6A9 \uC548\uB0B4"
+        }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
+          children: "\uC0DD\uC131 \uD6C4 \uC2E4\uC81C \uBE44\uC6A9 \uD655\uC815"
+        }), /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
+          children: "\uAE08\uC561 \uC785\uB825 \uC5C6\uC774 \uC0DD\uC131\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uBB34\uB8CC \uC0DD\uC131\uC774 \uC544\uB2D9\uB2C8\uB2E4."
         })]
       })]
     }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
       className: "muted",
-      children: "\uC608\uC57D \uC608\uC0B0\uC740 Frame \uB0B4\uBD80 \uC608\uC0B0 \uC9D1\uACC4\uC6A9\uC785\uB2C8\uB2E4. \uACF5\uAE09\uC790\uC758 \uCCAD\uAD6C \uC0C1\uD55C\uC774\uB098 \uD655\uC815 \uACAC\uC801\uC774 \uC544\uB2C8\uBA70, \uC2E4\uC81C \uD1A0\uD070 \uBE44\uC6A9\uC740 \uC0DD\uC131 \uD6C4 \uC6B4\uC601\uC790\uAC00 \uD655\uC778\uD574 \uC815\uC0B0\uD569\uB2C8\uB2E4."
+      children: "Higgsfield \uC2E4\uC81C \uBE44\uC6A9\uC740 \uD504\uB86C\uD504\uD2B8\xB7\uCC38\uACE0 \uC774\uBBF8\uC9C0\xB7\uD574\uC0C1\uB3C4\xB7\uD488\uC9C8\uACFC \uD1A0\uD070 \uC0AC\uC6A9\uB7C9\uC5D0 \uB530\uB77C \uB2EC\uB77C\uC9D1\uB2C8\uB2E4. \uC0DD\uC131 \uD6C4 \uACF5\uAE09\uC790 \uC0AC\uC6A9 \uB0B4\uC5ED\uC744 \uD655\uC778\uD574 \uBE44\uC6A9\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4. \uACB0\uC81C\uB294 \uC5F0\uACB0\uB41C Higgsfield \uACC4\uC815\uC758 \uACB0\uC81C \uBC29\uC2DD\uC5D0 \uB530\uB985\uB2C8\uB2E4."
     }), units.length > 0 && !(selected !== null && selected !== void 0 && selected.scriptApproved) && /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
       children: "\uC120\uD0DD\uD55C \uC52C\uC758 \uB300\uBCF8\uC744 \uBA3C\uC800 \uC2B9\uC778\uD574 \uC8FC\uC138\uC694."
     }), /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
       className: "primary",
-      disabled: blocked || !preset || !asset || !(selected !== null && selected !== void 0 && selected.scriptApproved) || !prompt.trim() || !Number.isInteger(Number(reserve)) || Number(reserve) < 1 || Number(reserve) * count > 10000,
+      disabled: blocked || !preset || !asset || !(selected !== null && selected !== void 0 && selected.scriptApproved) || !prompt.trim(),
       onClick: quote,
-      children: "\uC608\uC57D \uC608\uC0B0 \uD655\uC778 \uD6C4 \uD6C4\uBCF4 \uC0DD\uC131"
+      children: "\uD6C4\uBCF4 \uC0DD\uC131\uD558\uAE30"
     }), message && /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
       role: "status",
       children: message
@@ -19060,7 +19050,7 @@ function MarketingImages(_ref) {
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("strong", {
               children: ((_c$marketing2 = c.marketing) === null || _c$marketing2 === void 0 || (_c$marketing2 = _c$marketing2.preset) === null || _c$marketing2 === void 0 ? void 0 : _c$marketing2.name) || ((_c$generation = c.generation) === null || _c$generation === void 0 ? void 0 : _c$generation.label) || '기존 이미지'
             }), /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
-              children: [(_c$generation2 = c.generation) === null || _c$generation2 === void 0 ? void 0 : _c$generation2.resolution, " \xB7 ", ((_c$marketing3 = c.marketing) === null || _c$marketing3 === void 0 ? void 0 : _c$marketing3.quality) || '', c.costType === 'confirmed-job-total' ? " \xB7 \uC694\uCCAD \uCCAD\uAD6C \u20A9".concat(Number(c.jobCost).toLocaleString(), " (").concat(c.jobCandidateCount, "\uAC1C \uD569\uACC4)") : c.costType === 'unconfirmed' ? ' · 청구액 확인 전' : '']
+              children: [(_c$generation2 = c.generation) === null || _c$generation2 === void 0 ? void 0 : _c$generation2.resolution, " \xB7 ", ((_c$marketing3 = c.marketing) === null || _c$marketing3 === void 0 ? void 0 : _c$marketing3.quality) || '', c.costType === 'confirmed-job-total' ? " \xB7 \uC694\uCCAD \uCCAD\uAD6C \u20A9".concat(Number(c.jobCost).toLocaleString(), " (").concat(c.jobCandidateCount, "\uAC1C \uD569\uACC4)") : c.costType === 'unconfirmed' ? ' · 실제 비용 확인 중' : '']
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
               disabled: blocked || ((_selected$image = selected.image) === null || _selected$image === void 0 ? void 0 : _selected$image.id) === c.id || c.expires < Date.now(),
               onClick: function onClick() {
@@ -19141,15 +19131,13 @@ function MarketingImages(_ref) {
           children: "\uAD11\uACE0 \uC774\uBBF8\uC9C0 \uD6C4\uBCF4 \uC0DD\uC131"
         }), /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
           children: [ticket.value.preset.name, " \xB7 ", ticket.value.request.resolution, " \xB7 ", ticket.value.request.quality, " \xB7 ", ticket.value.request.count, "\uAC1C"]
-        }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
+        }), /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
           className: "quote-amount",
-          children: ["\uC608\uC57D \u20A9", ticket.value.amount.toLocaleString()]
-        }), /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
-          children: ["\uD504\uB85C\uC81D\uD2B8 \uC0AC\uC6A9\xB7\uC608\uC57D \u20A9", ticket.value.budget.project.toLocaleString(), " / \u20A910,000"]
-        }), /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
-          children: ["\uC6D4\uAC04 \uC0AC\uC6A9\xB7\uC608\uC57D \u20A9", ticket.value.budget.month.toLocaleString(), " / \u20A9100,000"]
+          children: ticket.value.costType === 'demo' ? '시연 · 실제 비용 없음' : '생성 후 실제 비용 확정'
         }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
-          children: "\uC0C1\uD488 \uC774\uBBF8\uC9C0 \uD55C \uC7A5\uACFC \uC0C1\uD488\xB7\uC7A5\uBA74 \uC124\uBA85\uC774 Higgsfield\uC5D0 \uC804\uB2EC\uB429\uB2C8\uB2E4. \uC2E4\uC81C \uCCAD\uAD6C\uC561\uC740 \uC608\uC57D \uAE08\uC561\uACFC \uB2E4\uB97C \uC218 \uC788\uC73C\uBA70, \uC644\uB8CC \uD6C4 \uD655\uC778\uD569\uB2C8\uB2E4."
+          children: "\uC0C1\uD488 \uC774\uBBF8\uC9C0 \uD55C \uC7A5\uACFC \uC0C1\uD488\xB7\uC7A5\uBA74 \uC124\uBA85\uC774 Higgsfield\uC5D0 \uC804\uB2EC\uB429\uB2C8\uB2E4. \uC0DD\uC131\uC740 \uC720\uB8CC\uC774\uBA70, \uC644\uB8CC \uD6C4 \uACF5\uAE09\uC790 \uC0AC\uC6A9 \uB0B4\uC5ED\uC744 \uD655\uC778\uD574 \uC2E4\uC81C \uBE44\uC6A9\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4. \uC9C0\uAE08 \uD45C\uC2DC\uB41C \uAE08\uC561\uC774 \uC5C6\uB294 \uAC83\uC740 \uBB34\uB8CC\uB77C\uB294 \uB73B\uC774 \uC544\uB2D9\uB2C8\uB2E4."
+        }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
+          children: "\uBE44\uC6A9 \uD655\uC778 \uC804\uC778 \uC791\uC5C5\uC740 \uD569\uACC4\uC5D0 \uD3EC\uD568\uB418\uC9C0 \uC54A\uACE0 \uBCC4\uB3C4\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4. \uC2E4\uC81C \uBE44\uC6A9\uC774 \uC0AC\uC6A9 \uD55C\uB3C4\uB97C \uB118\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
         }), /*#__PURE__*/(0,jsx_runtime.jsxs)("label", {
           className: "check",
           children: [/*#__PURE__*/(0,jsx_runtime.jsx)("input", {
@@ -19159,7 +19147,7 @@ function MarketingImages(_ref) {
             onChange: function onChange(e) {
               return setConsent(e.target.checked);
             }
-          }), "\uC790\uB8CC \uC804\uB2EC\uACFC \uC608\uC57D \uC608\uC0B0\xB7\uBCC0\uB3D9 \uBE44\uC6A9\uC744 \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4."]
+          }), "\uC790\uB8CC \uC804\uB2EC\uACFC \uC720\uB8CC \uC0DD\uC131\xB7\uC0DD\uC131 \uD6C4 \uBE44\uC6A9 \uD655\uC815\uC744 \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4."]
         }), error && /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
           role: "alert",
           children: error
@@ -21427,7 +21415,7 @@ function SceneModels(_ref3) {
             }), /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
               children: [c.created ? new Date(c.created).toLocaleString('ko-KR') : '이전 생성', " \xB7 \uC785\uB825 \uBC84\uC804 ", ((_c$generationInput = c.generationInput) === null || _c$generationInput === void 0 ? void 0 : _c$generationInput.sceneRevision) || c.revision, " \xB7 ", (_c$inputFingerprint = c.inputFingerprint) === null || _c$inputFingerprint === void 0 ? void 0 : _c$inputFingerprint.slice(0, 8)]
             }), /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
-              children: [c.costType === 'confirmed-job-total' ? '이 요청 실제 청구 ₩' + Number(c.jobCost).toLocaleString() + ' (' + c.jobCandidateCount + '개 합계)' : c.costType === 'unconfirmed' ? '청구액 확인 전 · 예약 ₩' + Number(c.reserved || 0).toLocaleString() : '예상 비용 ₩' + Math.ceil(c.cost || 0).toLocaleString(), (_c$generation4 = c.generation) !== null && _c$generation4 !== void 0 && _c$generation4.requestedSeconds ? " \xB7 \uC0DD\uC131 ".concat(c.generation.requestedSeconds, "\uCD08 / \uC0AC\uC6A9 ").concat(c.generation.sceneSeconds, "\uCD08") : '']
+              children: [c.costType === 'confirmed-job-total' ? '이 요청 실제 청구 ₩' + Number(c.jobCost).toLocaleString() + ' (' + c.jobCandidateCount + '개 합계)' : c.costType === 'unconfirmed' ? '실제 비용 확인 중 · 합계 미포함' : '예상 비용 ₩' + Math.ceil(c.cost || 0).toLocaleString(), (_c$generation4 = c.generation) !== null && _c$generation4 !== void 0 && _c$generation4.requestedSeconds ? " \xB7 \uC0DD\uC131 ".concat(c.generation.requestedSeconds, "\uCD08 / \uC0AC\uC6A9 ").concat(c.generation.sceneSeconds, "\uCD08") : '']
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
               disabled: disabled || ((_scene$kind2 = scene[kind]) === null || _scene$kind2 === void 0 ? void 0 : _scene$kind2.id) === c.id || c.expires < Date.now(),
               onClick: function onClick() {
@@ -23654,6 +23642,8 @@ function Studio(_ref) {
           })
         }), /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
           children: "\uC11C\uBC84\xB7\uC800\uC7A5\uC18C \uC6B4\uC601\uBE44 \uBCC4\uB3C4"
+        }), budget.monthUnconfirmed > 0 && /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
+          children: ["\uAD11\uACE0 \uC774\uBBF8\uC9C0 ", budget.monthUnconfirmed, "\uAC74 \uBE44\uC6A9 \uD655\uC778 \uC911 \xB7 \uD569\uACC4 \uBBF8\uD3EC\uD568"]
         })]
       }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
         className: "profile",
@@ -23743,8 +23733,10 @@ function Studio(_ref) {
               }), /*#__PURE__*/(0,jsx_runtime.jsx)("p", {
                 children: j.error
               })]
-            }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
-              children: ["\uC608\uC57D \u20A9", money(j.reserved), " / \uC815\uC0B0\xB7\uCD94\uC815 ", j.actual === null ? '과금 미확인' : '₩' + money(j.actual)]
+            }), /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
+              children: j.kind === 'marketing-image' ? j.actual === null ? '생성 후 실제 비용 확인 중' : '확정 비용 ₩' + money(j.actual) : /*#__PURE__*/(0,jsx_runtime.jsxs)(jsx_runtime.Fragment, {
+                children: ["\uC608\uC57D \u20A9", money(j.reserved), " / \uC815\uC0B0\xB7\uCD94\uC815 ", j.actual === null ? '과금 미확인' : '₩' + money(j.actual)]
+              })
             }), j.status === 'unknown' && ((_j$provider_id = j.provider_id) === null || _j$provider_id === void 0 ? void 0 : _j$provider_id.startsWith('{')) && /*#__PURE__*/(0,jsx_runtime.jsx)("button", {
               onClick: function onClick() {
                 return task(/*#__PURE__*/asyncToGenerator_default()(/*#__PURE__*/regenerator_default().mark(function _callee3() {
@@ -25118,10 +25110,13 @@ function Studio(_ref) {
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("hr", {}), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
               className: "summary-row",
               children: [/*#__PURE__*/(0,jsx_runtime.jsx)("span", {
-                children: "\uC0AC\uC6A9\xB7\uC608\uC57D \uBE44\uC6A9"
+                children: "\uC9D1\uACC4\uB41C \uC0AC\uC6A9\xB7\uC608\uC0C1 \uBE44\uC6A9"
               }), /*#__PURE__*/(0,jsx_runtime.jsxs)("b", {
                 children: ["\u20A9", money(budget.project)]
               })]
+            }), budget.projectUnconfirmed > 0 && /*#__PURE__*/(0,jsx_runtime.jsxs)("p", {
+              role: "status",
+              children: ["\uAD11\uACE0 \uC774\uBBF8\uC9C0 ", budget.projectUnconfirmed, "\uAC74 \uC2E4\uC81C \uBE44\uC6A9 \uD655\uC778 \uC911 \xB7 \uC704 \uD569\uACC4 \uBBF8\uD3EC\uD568"]
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
               children: "\uD504\uB85C\uC81D\uD2B8 \uD55C\uB3C4 \u20A910,000"
             }), /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
@@ -25173,6 +25168,8 @@ function Studio(_ref) {
                     done: '완료',
                     failed: '실패'
                   }[j.status]]
+                }), j.kind === 'marketing-image' && /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
+                  children: j.actual === null ? '실제 비용 확인 중 · 합계 미포함' : '확정 비용 ₩' + money(j.actual)
                 }), j.error && /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
                   children: j.error
                 })]
@@ -26012,7 +26009,8 @@ window.fetch = /*#__PURE__*/function () {
             preset: marketingPresets.find(function (x) {
               return x.id === body.preset;
             }),
-            amount: 0,
+            amount: null,
+            costType: 'demo',
             budget: {
               project: 0,
               month: 0
