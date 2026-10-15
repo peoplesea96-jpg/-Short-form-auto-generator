@@ -15,6 +15,7 @@ globalThis.fetch=async(url,options={})=>{
  appendFileSync(process.env.MARKETING_MOCK_LOG,JSON.stringify({method:options.method||'GET',path:u.pathname})+'\n');
  if(options.method==='POST'){
   paid++;if(process.env.MARKETING_MOCK_MODE==='ambiguous')throw new TypeError('Disconnected paid POST');
+  if(process.env.MARKETING_MOCK_MODE==='forbidden')return new Response('private provider error',{status:403});
   if(process.env.MARKETING_MOCK_MODE==='rejected')return new Response('rejected',{status:400});
   if(process.env.MARKETING_MOCK_MODE==='partial'&&paid===2)return new Response('rejected',{status:400});
   return Response.json({request_id:'mock-'+paid,status_url:'https://api.higgsfield.ai/requests/mock-'+paid+'/status'});
