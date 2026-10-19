@@ -21252,7 +21252,7 @@ var demoModels = [{
 }, {
   id: 'gpt-image',
   kind: 'image',
-  label: 'GPT Image 1.5',
+  label: 'GPT Image 2.5 Sunburst',
   resolutions: ['1024x1536']
 }, {
   id: 'seedance',
@@ -21333,7 +21333,7 @@ function Choice(_ref) {
           }, r);
         })
       }), /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
-        children: value.model === 'marketing-flare' ? '프리셋·상품 원본·품질·예산은 광고 이미지 생성 화면에서 설정합니다.' : value.model === 'gpt-image' ? '세로 2:3 원본 전체를 9:16에 여백으로 맞춥니다.' : value.model === 'minimax' ? '6초·10초 생성, 씬 최대 10초' : value.model === 'kling' ? '3~15초 생성 · 원본 이미지 비율 사용' : value.model === 'seedance' ? '4~30초 생성 · 원본 이미지 비율 사용' : ''
+        children: value.model === 'marketing-flare' ? '프리셋·상품 원본·품질·예산은 광고 이미지 생성 화면에서 설정합니다.' : value.model === 'gpt-image' ? 'GPT Image 2.5 Sunburst로 생성합니다. 세로 2:3 원본 전체를 9:16에 맞춥니다. 비용은 운영자가 설정한 예상치이며 실제 토큰 청구액과 다를 수 있습니다.' : value.model === 'minimax' ? '6초·10초 생성, 씬 최대 10초' : value.model === 'kling' ? '3~15초 생성 · 원본 이미지 비율 사용' : value.model === 'seedance' ? '4~30초 생성 · 원본 이미지 비율 사용' : ''
       })]
     })]
   });
@@ -25463,6 +25463,8 @@ function Studio(_ref) {
                 children: [g.label, " \xB7 ", g.resolution]
               }), /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
                 children: g.version
+              }), g.model === 'gpt-image' && /*#__PURE__*/(0,jsx_runtime.jsx)("small", {
+                children: "\uC6B4\uC601\uC790 \uC124\uC815 \uC608\uC0C1\uC561\uC785\uB2C8\uB2E4. \uC2E4\uC81C \uBE44\uC6A9\uC740 \uD14D\uC2A4\uD2B8\xB7\uCC38\uACE0 \uC774\uBBF8\uC9C0 \uC785\uB825\uACFC \uCD9C\uB825 \uD1A0\uD070\uC5D0 \uB530\uB77C \uB2EC\uB77C\uC9D1\uB2C8\uB2E4."
               }), /*#__PURE__*/(0,jsx_runtime.jsxs)("small", {
                 children: [g.requestedSeconds ? "\uC52C ".concat(g.sceneSeconds, "\uCD08 \u2192 \uC0DD\uC131 \uC694\uCCAD ").concat(g.requestedSeconds, "\uCD08 \xB7 ") : "", "\uC608\uC0C1 \u20A9", money(g.amount)]
               })]
