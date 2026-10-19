@@ -9,7 +9,7 @@ Object.assign(process.env,{GEMINI_API_KEY:'fake-gemini',OPENAI_API_KEY:'fake-ope
 const {db,id,saveProject,getProject,budget}=await import('../server/db.mjs');
 const {createProject,active,quote,enqueue,approve}=await import('../server/domain.mjs');
 const {saveGenerationSettings,addCandidate,selectCandidate}=await import('../server/generation-candidates.mjs');
-const {generationCatalog,inputFingerprint,modelSnapshot}=await import('../server/generation-models.mjs');
+const {generationCatalog,inputFingerprint,modelSnapshot,generationFingerprint}=await import('../server/generation-models.mjs');
 const {videoPayload,apiUrl,submitHiggsfield,pollHiggsfield}=await import('../server/higgsfield.mjs');
 const {storeFile}=await import('../server/media.mjs');
 const {generateOpenaiImage}=await import('../server/openai-image.mjs');
@@ -26,8 +26,18 @@ test('Higgsfield signed upload has no API authorization; paid POST is single and
 test('GPT Image generates one result, sends references through edits, and preserves full frame in 9:16',async()=>{
  const original=globalThis.fetch,p=project(),s=p.scenes[0];const png=await sharp({create:{width:20,height:30,channels:3,background:'#aabbcc'}}).png().toBuffer();const calls=[];
  globalThis.fetch=async(url,options)=>{calls.push({url,options});return Response.json({data:[{b64_json:png.toString('base64')}],usage:{total_tokens:100}},{headers:{'x-request-id':'fixture-request'}});};
- try{const snapshot={version:'gpt-image-1.5'};const out=await generateOpenaiImage(p,s,'Preserve the product.',snapshot);assert.equal(calls[0].url,'https://api.openai.com/v1/images/generations');const body=JSON.parse(calls[0].options.body);assert.equal(body.n,1);assert.equal(body.quality,'high');assert.equal(body.size,'1024x1536');const metadata=await sharp(Buffer.from(out.data,'base64')).metadata();assert.equal(metadata.width,1080);assert.equal(metadata.height,1920);
- const ref=await storeFile(p.id,owner,png,'image/png','product.png');p.assets=[ref];s.asset=ref.id;s.referenceMode='manual';await generateOpenaiImage(p,s,'Reference 1 is the product.',snapshot);assert.equal(calls[1].url,'https://api.openai.com/v1/images/edits');assert(calls[1].options.body instanceof FormData);assert.equal(calls[1].options.body.getAll('image[]').length,1);assert.equal(calls[1].options.body.get('input_fidelity'),'high');assert.equal(calls[1].options.headers['Content-Type'],undefined);
+ try{const snapshot={version:'gpt-image-2.5-sunburst'};const out=await generateOpenaiImage(p,s,'Preserve the product.',snapshot);assert.equal(calls[0].url,'https://api.openai.com/v1/images/generations');const body=JSON.parse(calls[0].options.body);assert.equal(body.model,'gpt-image-2.5-sunburst');assert.equal(body.n,1);assert.equal(body.quality,'high');assert.equal(body.size,'1024x1536');const metadata=await sharp(Buffer.from(out.data,'base64')).metadata();assert.equal(metadata.width,1080);assert.equal(metadata.height,1920);
+ const ref=await storeFile(p.id,owner,png,'image/png','product.png');p.assets=[ref];s.asset=ref.id;s.referenceMode='manual';await generateOpenaiImage(p,s,'Reference 1 is the product.',snapshot);assert.equal(calls[1].url,'https://api.openai.com/v1/images/edits');assert(calls[1].options.body instanceof FormData);assert.equal(calls[1].options.body.getAll('image[]').length,1);assert.equal(calls[1].options.body.get('model'),'gpt-image-2.5-sunburst');assert.equal(calls[1].options.body.get('input_fidelity'),null);assert.equal(calls[1].options.headers['Content-Type'],undefined);
+ await generateOpenaiImage(p,s,'Already queued legacy job.',{version:'gpt-image-1.5'});assert.equal(calls[2].options.body.get('model'),'gpt-image-1.5');assert.equal(calls[2].options.body.get('input_fidelity'),'high');
  }finally{globalThis.fetch=original;}
+});
+test('saved GPT choice upgrades future requests to 2.5, keeps historical media and rejects stale 1.5 quotes',()=>{
+ const p=project(),s=p.scenes[0];p.generationSettings.image={model:'gpt-image',resolution:'1024x1536'};s.image.generation={model:'gpt-image',label:'GPT Image 1.5',version:'gpt-image-1.5'};saveProject(p);
+ const catalog=generationCatalog().find(m=>m.id==='gpt-image');assert.equal(catalog.version,'gpt-image-2.5-sunburst');assert.equal(catalog.label,'GPT Image 2.5 Sunburst');
+ const q=quote(owner,p.id,'image');assert.equal(q.generations[s.id].version,'gpt-image-2.5-sunburst');
+ const legacy=structuredClone(q.generations);legacy[s.id].version='gpt-image-1.5';legacy[s.id].label='GPT Image 1.5';
+ assert.throws(()=>enqueue(owner,p.id,{...q,generationHash:generationFingerprint(legacy)},id()),/요율이 변경/);
+ assert.equal(getProject(p.id,owner).scenes[0].image.generation.version,'gpt-image-1.5');assert.equal(getProject(p.id,owner).scenes[0].imageApproved,true);
+ const job=enqueue(owner,p.id,q,id());assert.equal(JSON.parse(job.input).generations[s.id].version,'gpt-image-2.5-sunburst');db.prepare("UPDATE jobs SET status='done',actual=300 WHERE id=?").run(job.id);
 });
 test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});
