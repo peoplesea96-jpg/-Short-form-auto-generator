@@ -1,0 +1,28 @@
+import {captionsEnabled} from './production-direction.mjs';
+import {z} from 'zod';
+import {tx,getProject,saveProject,assert,audit,db,hash} from './db.mjs';
+import {findUnit} from './creative-structure.mjs';
+import {storeFile,filePath} from './media.mjs';
+import {voiceHash} from './project-profiles.mjs';
+export const finishSchema=z.object({cues:z.array(z.object({asset:z.string().uuid(),start:z.number().min(0),offset:z.number().min(0),seconds:z.number().positive().max(180),volume:z.number().min(0).max(1),label:z.string().max(100)})).max(20),texts:z.array(z.object({text:z.string().trim().min(1).max(100),start:z.number().min(0),end:z.number().positive()})).max(20),endCard:z.object({enabled:z.boolean(),seconds:z.number().min(1).max(10),asset:z.string().max(100),title:z.string().max(100),message:z.string().max(120)})});
+export function checkedFile(p,fid){const f=db.prepare('SELECT * FROM files WHERE id=? AND project=? AND owner=? AND expires>?').get(fid,p.id,p.owner,Date.now());assert(f,'파일이 만료되었거나 현재 프로젝트 소유가 아닙니다.');return f;}
+export function validateFinishing(p,value){const f=finishSchema.parse(value);assert(!p.productionDirection?.enabled||!f.endCard.enabled,'상품 중심 구성에서는 사진 마무리 화면 대신 마지막 상품 영상을 사용해 주세요.');assert(captionsEnabled(p)||(!f.texts.length&&!f.endCard.enabled),'무자막 설정에서는 강조 문구와 글자 마무리 화면을 꺼 주세요.');for(const c of f.cues){const a=p.audioAssets?.find(a=>a.id===c.asset);assert(a&&checkedFile(p,c.asset).mime.startsWith('audio/'),'사용할 음향 파일을 확인해 주세요.');assert(c.start+c.seconds<=p.duration+1/30&&c.offset+c.seconds<=a.duration+1/30,'효과음 구간이 영상 또는 원본 길이를 넘습니다.');}for(const t of f.texts)assert(t.start<t.end&&t.end<=p.duration,'강조 문구 시간을 확인해 주세요.');if(f.endCard.enabled){assert(f.endCard.seconds<=p.duration&&f.endCard.title.trim(),'마무리 화면의 제목과 시간을 확인해 주세요.');if(f.endCard.asset)assert(p.assets.some(a=>a.id===f.endCard.asset)&&checkedFile(p,f.endCard.asset).mime.startsWith('image/'),'마무리 상품 이미지를 확인해 주세요.');}return f;}
+export function saveFinishing(owner,pid,b,active){return tx(()=>{const p=getProject(pid,owner);assert(p.revision===b.revision,'내용이 변경되었습니다.',409);assert(!active(p),'진행 중인 작업을 먼저 확인해 주세요.');
+ if(b.operation==='trim'){const s=findUnit(p,b.unit)?.target;assert(s?.video?.id===b.candidate,'선택 영상이 변경되었습니다.');const start=z.number().min(0).parse(b.start),end=z.number().positive().parse(b.end);assert(end>start&&Math.abs(end-start-s.seconds)<=1/30,'선택 길이는 샷 길이와 같아야 합니다.');assert(end<=(s.video.duration||0)+1/30,'선택 구간이 원본 길이를 넘습니다.');checkedFile(p,s.video.id);s.trim={candidate:s.video.id,start,end};}
+ else if(b.operation==='preview'){assert(['reviewed','skipped'].includes(b.status),'검토 상태를 확인해 주세요.');p.previewReview={status:b.status,at:Date.now(),hash:previewHash(p)};}
+ else if(b.operation==='voice'){const s=p.scenes.find(s=>s.id===b.scene),a=p.audioAssets?.find(a=>a.id===b.asset);assert(s&&a,'음성 파일과 씬을 확인해 주세요.');checkedFile(p,a.id);assert(a.duration<=s.seconds+1/30,'음성이 씬보다 깁니다.');s.audio={...a,external:true,narrationHash:hash(s.narration),profileHash:p.voiceProfile?voiceHash(p.voiceProfile):null};s.audioApproved=false;}
+ else if(b.operation==='save')p.finishing=validateFinishing(p,b.finishing);
+ else assert(false,'잘못된 편집 작업입니다.');
+ p.revision++;saveProject(p);audit(owner,'finishing.'+b.operation,pid);return p;});}
+export const previewHash=p=>hash(JSON.stringify([p.productionDirection,p.scenes.map(s=>({id:s.id,speechMode:s.speechMode,visualRole:s.visualRole,presentation:s.presentation,narration:s.narration,visual:s.visual,motion:s.motion,audio:s.audio?.id,seconds:s.seconds,image:s.image?.id,shots:s.shots?.map(x=>({id:x.id,visualRole:x.visualRole,presentation:x.presentation,visual:x.visual,motion:x.motion,seconds:x.seconds,image:x.image?.id}))}))]));
+export function audioFormat(bytes){
+ if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WAVE')return 'wav';
+ if(bytes.subarray(0,3).toString()==='ID3'||(bytes[0]===255&&(bytes[1]&254)===250))return 'mp3';
+ assert(false,'WAV 또는 MP3 음향 파일을 선택해 주세요.');
+}
+export function trimStart(s){if(!s.trim||s.trim.candidate!==s.video?.id)return 0;assert(s.trim.start>=0&&s.trim.end<=s.video.duration+1/30&&Math.abs(s.trim.end-s.trim.start-s.seconds)<=1/30,'사용 구간을 다시 선택해 주세요.');return s.trim.start;}
+export async function uploadAudio(owner,pid,file,rights,active){
+ const p=getProject(pid,owner);assert(!active(p),'진행 중인 작업이 있습니다.');assert(rights===true,'음향 사용 권한을 확인해 주세요.');assert(file?.size>0&&file.size<=30*1024*1024,'음향 파일은 30MB 이하만 가능합니다.');assert((p.audioAssets?.length||0)<30,'음향 파일은 최대 30개입니다.');
+ const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const path=await import('node:path');const {run,duration}=await import('./render.mjs');const dir=await mkdtemp(path.join(tmpdir(),'frame-audio-'));
+ try{const bytes=Buffer.from(await file.arrayBuffer()),format=audioFormat(bytes);await writeFile(path.join(dir,'source'),bytes);await run(process.env.FFMPEG_PATH||'ffmpeg',['-v','error','-y','-protocol_whitelist','file,pipe','-f',format,'-i','source','-vn','-t','181','-ac','2','-ar','48000','-c:a','pcm_s16le','audio.wav'],dir);const buf=await readFile(path.join(dir,'audio.wav'));assert(buf.length<35*1024*1024,'음향은 180초 이하만 지원합니다.');const a=await storeFile(pid,owner,buf,'audio/wav',String(file.name).slice(0,100));a.duration=await duration(a.id,'audio');assert(a.duration<=180,'음향은 180초 이하만 지원합니다.');a.rightsConfirmedAt=Date.now();return tx(()=>{const current=getProject(pid,owner);assert(!active(current),'프로젝트가 변경되었습니다.');assert((current.audioAssets?.length||0)<30,'음향 파일 한도입니다.');current.audioAssets=[...(current.audioAssets||[]),a];current.revision++;saveProject(current);return current;});}finally{await rm(dir,{recursive:true,force:true});}
+}

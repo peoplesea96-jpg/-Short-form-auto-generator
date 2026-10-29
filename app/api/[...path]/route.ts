@@ -1,3 +1,5 @@
+import {saveFinishing,uploadAudio} from '../../../server/finishing.mjs';
+import {savePlanning} from '../../../server/ad-planning.mjs';
 import {enrichPresetCatalog,savePresetReference,deletePresetReference,presetPreview} from '../../../server/preset-references.mjs';
 import {marketingCatalog,quoteMarketing,enqueueMarketing,settleMarketing} from '../../../server/marketing-images.mjs';
 import {outputProfile} from '../../../server/output-settings.mjs';
@@ -37,7 +39,7 @@ if(route==='detail-drafts'){
  if(pid&&action==='import-url'&&method==='POST'){assert(Number(req.headers.get('content-length')||0)<8192,'요청이 너무 큽니다.');return json(await importDetailUrl(owner,pid,await req.json()));}
  if(!pid)return method==='GET'?json({drafts:recentDrafts(owner)}):json(newDraft(owner),201);
  if(method==='GET')return json(getDraft(owner,pid));
- if(action==='upload'){assert(Number(req.headers.get('content-length')||0)<11*1024*1024,'파일은 10MB 이하만 가능합니다.');const form=await req.formData();const file=form.get('file');assert(file instanceof File,'이미지 파일이 필요합니다.');return json(await uploadDetail(owner,pid,file));}
+if(action==='upload'){assert(Number(req.headers.get('content-length')||0)<11*1024*1024,'파일은 10MB 이하만 가능합니다.');const form=await req.formData();const file=form.get('file');assert(file instanceof File,'이미지 파일이 필요합니다.');return json(await uploadDetail(owner,pid,file));}
  const b=await req.json();
  if(action==='images')return json(reorderDetails(owner,pid,b.revision,b.ids));
  if(action==='quote')return json(analysisQuote(owner,pid));
@@ -45,12 +47,15 @@ if(route==='detail-drafts'){
  if(action==='review')return json(saveReview(owner,pid,b.revision,b.review));
 }
 if(route==='projects'){if(!pid&&method==='GET')return json({projects:listProjects(owner),budget:budget(owner,'')});if(!pid&&method==='POST'){const b=await req.json();return json(tx(()=>{const project=createProject(owner,b);if(b.detailDraftId){attachDraft(owner,project,b.detailDraftId,b.detailDraftRevision);saveProject(project);}return project;}),201);}const p=getProject(pid,owner);if(method==='GET')return json({project:p,budget:budget(owner,pid),jobs:db.prepare('SELECT id,kind,scene,status,reserved,actual,error,created FROM jobs WHERE project=? ORDER BY created DESC LIMIT 30').all(pid)});if(method==='DELETE'){assert(!active(p),'진행 중인 작업을 먼저 확인해 주세요.');db.prepare('UPDATE projects SET deleted=1 WHERE id=?').run(pid);audit(email,'project.delete',pid);return json({ok:true});}
+if(action==='audio-upload'){assert(Number(req.headers.get('content-length')||0)<31*1024*1024,'음향 파일은 30MB 이하만 가능합니다.');const form=await req.formData();const file=form.get('file');assert(file instanceof File,'음향 파일이 필요합니다.');return json(await uploadAudio(owner,pid,file,form.get('rights')==='true',active));}
 if(action==='upload'){assert(!active(p),'작업 완료 후 업로드해 주세요.');assert(p.assets.length<10,'이미지는 최대 10개입니다.');assert(Number(req.headers.get('content-length')||0)<11*1024*1024,'파일은 10MB 이하만 가능합니다.');const form=await req.formData();const f=form.get('file');assert(f instanceof File&&f.size<=10*1024*1024,'파일은 10MB 이하만 가능합니다.');const file=f as File;const image=sharp(Buffer.from(await file.arrayBuffer()),{limitInputPixels:40000000});const meta=await image.metadata();assert(['jpeg','png','webp'].includes(meta.format||''),'JPEG·PNG·WebP만 업로드할 수 있습니다.');const buf=await image.rotate().resize(1600,1600,{fit:'inside',withoutEnlargement:true}).webp().toBuffer();const asset=await storeFile(pid,owner,buf,'image/webp','product.webp');tx(()=>{const current=getProject(pid,owner);assert(!active(current)&&current.assets.length<10,'프로젝트 상태가 변경되었습니다.');current.assets.push(asset);current.revision++;saveProject(current);});return json(asset);}
 const b=await req.json();
 if(action==='product-sheet')return json(tx(()=>{const current=getProject(pid,owner);assert(current.revision===b.revision,'다른 변경이 있습니다. 새로고침해 주세요.',409);assert(!active(current),'진행 중인 작업을 먼저 확인해 주세요.');const data=validateSheet(current,b.sheet);const previous=current.productSheet;const changed=!previous||JSON.stringify(data)!==JSON.stringify(validateSheet(current,previous));const sheet={...data,id:previous?.id||id(),version:(previous?.version||0)+(changed?1:0),approved:b.approved===true,approvedAt:b.approved===true?Date.now():null};current.productSheet=sheet;for(const s of current.scenes){if(!previous&&!s.referenceMode)s.referenceMode='inherit';if((s.referenceMode||'inherit')==='inherit'&&(changed||!sheet.approved)){if(changed)s.scriptApproved=false;s.imageApproved=false;s.videoApproved=false;for(const shot of s.shots||[]){shot.imageApproved=false;shot.videoApproved=false;}}}current.revision++;saveProject(current);audit(owner,'sheet.save',pid);return current;}));
 if(action==='voice-profile'){const profile=await validateVoice(b.profile);return json(tx(()=>{const current=getProject(pid,owner);assert(current.revision===b.revision,'다른 변경이 있습니다. 새로고침해 주세요.',409);assert(!active(current),'진행 중인 작업을 먼저 확인해 주세요.');if(!current.voiceProfile||voiceHash(current.voiceProfile)!==voiceHash(profile)){current.voiceProfile=profile;for(const s of current.scenes){s.audioApproved=false;s.videoApproved=false;for(const shot of s.shots||[])shot.videoApproved=false;}current.narrationComposition=narrationComposition(current);current.revision++;saveProject(current);audit(owner,'voice.profile',pid);}return current;}));}
 if(action==='marketing-quote')return json(await quoteMarketing(owner,pid,b));
 if(action==='marketing-generate'){assert(b.confirmed===true,'자료 전달·유료 생성 확인이 필요합니다.');return json(await enqueueMarketing(owner,pid,b.quote,b.idempotencyKey),202);}
+if(action==='finishing')return json(saveFinishing(owner,pid,b,active));
+if(action==='planning')return json(savePlanning(owner,pid,b,active));
 if(action==='music')return json(saveMusic(owner,pid,b,active));
 if(action==='creative')return json(saveCreative(owner,pid,b,active));
 if(action==='versions')return json(manageVersion(owner,pid,b,active));

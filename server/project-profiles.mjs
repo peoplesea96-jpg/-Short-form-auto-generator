@@ -17,5 +17,5 @@ export function resolvedReferences(p,s,now=Date.now()){
 export function defaultVoice(){return {provider:'gemini',voiceId:process.env.GEMINI_TTS_VOICE||'Sulafat',model:process.env.GEMINI_TTS_MODEL||'gemini-3.1-flash-tts-preview',instructions:'자연스럽고 따뜻하며 명확한 한국어 광고 내레이션',stability:0.65,similarity:0.8,speed:1};}
 export const voiceSchema=z.object({provider:z.enum(['gemini','elevenlabs']),voiceId:z.string().regex(/^[A-Za-z0-9_-]{1,100}$/),model:z.string().regex(/^[A-Za-z0-9_.-]{1,100}$/),instructions:text(1000),stability:z.number().min(0).max(1),similarity:z.number().min(0).max(1),speed:z.number().min(.7).max(1.2)});
 export function voiceHash(profile){return hash(JSON.stringify(voiceSchema.parse(profile)));}
-export function audioMatches(p,s){return !p.voiceProfile||s.audio?.profileHash===voiceHash(p.voiceProfile);}
+export function audioMatches(p,s){return s.audio?.external?s.audio.narrationHash===hash(s.narration):!p.voiceProfile||s.audio?.profileHash===voiceHash(p.voiceProfile);}
 export function narrationComposition(p){return p.scenes.map(s=>({scene:s.id,audio:s.audio?.id||null,seconds:s.seconds,narrationHash:hash(s.narration),profileHash:s.audio?.profileHash||null}));}
