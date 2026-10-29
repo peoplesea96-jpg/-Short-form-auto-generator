@@ -24,4 +24,19 @@ test('explicit background role overrides inherited product reference for same im
 test('provider receives both base and product bytes with correction instructions; queue snapshots same inputs',async()=>{let {p,asset,base}=await fixture();p=saveImageRevision(owner,p.id,{revision:p.revision,unit:p.scenes[0].id,imageRevision:config(asset,base),model:choice},active);const old=globalThis.fetch;let payload;globalThis.fetch=async(url,opts)=>{payload=JSON.parse(opts.body);return new Response(JSON.stringify({output_image:{mime_type:'image/png',data:png.toString('base64')}}));};try{await generateImage(p,p.scenes[0],{provider:'gemini',version:'fixture'});assert.equal(payload.input.filter(x=>x.type==='image').length,2);const prompt=payload.input.filter(x=>x.type==='text').map(x=>x.text).join(' ');assert.match(prompt,/라벨을 초록색/);assert.match(prompt,/edit_base/);assert.match(prompt,/authoritative source/);}finally{globalThis.fetch=old;}const q=quote(owner,p.id,'image',p.scenes[0].id),job=enqueue(owner,p.id,q,'revision-'+id()),input=JSON.parse(job.input);assert.deepEqual(input.referenceSets[p.scenes[0].id].map(x=>x.id),[base.id,asset.id]);assert.equal(input.selected[0].imageRevision.instructions,p.scenes[0].imageRevision.instructions);db.prepare('DELETE FROM jobs WHERE id=?').run(job.id);});
 test('new result remains a candidate and can be explicitly selected; old revision cannot be selected',async()=>{let {p,asset,base}=await fixture();p=saveImageRevision(owner,p.id,{revision:p.revision,unit:p.scenes[0].id,imageRevision:config(asset,base),model:choice},active);const fresh={...await storeFile(p.id,owner,png,'image/png','corrected.png'),inputFingerprint:inputFingerprint(p,p.scenes[0],'image')};addCandidate(p,p.scenes[0],'image',fresh);saveProject(p);assert.equal(p.scenes[0].image.id,base.id);p=selectCandidate(owner,p.id,p.revision,p.scenes[0].id,'image',fresh.id,active);assert.equal(p.scenes[0].image.id,fresh.id);assert.equal(p.scenes[0].imageApproved,false);assert.throws(()=>selectCandidate(owner,p.id,p.revision,p.scenes[0].id,'image',base.id,active),/일치/);});
 test('scene-level revision cannot accidentally leak into newly created shots',()=>{const unit=shotUnit({id:'s',imageRevision:{baseImage:'old'}},{id:'shot',visual:'new'});assert.equal(unit.imageRevision,null);});
+test('bulk corrections preserve per-scene bases and quote only requested units',async()=>{
+ let {p,asset,base}=await fixture();
+ const secondBase=await storeFile(p.id,owner,png,'image/png','second.png');
+ p.scenes.push({...p.scenes[0],id:id(),image:secondBase,candidates:{image:[secondBase]}},{...p.scenes[0],id:id()});saveProject(p);
+ const ids=p.scenes.slice(0,2).map(s=>s.id);
+ p=saveImageRevision(owner,p.id,{revision:p.revision,unit:ids[0],units:ids,imageRevision:config(asset,base),model:choice},active);
+ assert.equal(p.scenes[0].imageRevision.baseImage,base.id);assert.equal(p.scenes[1].imageRevision.baseImage,secondBase.id);assert.equal(p.scenes[2].imageRevision,undefined);
+ assert.equal(p.scenes[2].imageApproved,true);
+ const q=quote(owner,p.id,'image',ids);assert.equal(q.selectedCount,2);assert.equal(q.amount,80);
+ const job=enqueue(owner,p.id,q,'bulk-'+id()),input=JSON.parse(job.input);
+ assert.equal(input.selected.length,2);assert.deepEqual(input.referenceSets[ids[1]].map(r=>r.id),[secondBase.id,asset.id]);assert.equal(job.scene,null);
+ db.prepare('DELETE FROM jobs WHERE id=?').run(job.id);
+ assert.throws(()=>quote(owner,p.id,'image',[ids[0],'missing']));assert.throws(()=>quote(owner,p.id,'image',[]));assert.throws(()=>quote(owner,p.id,'image',[ids[0],ids[0]]));
+ assert.throws(()=>saveImageRevision(owner,p.id,{revision:p.revision,unit:ids[0],units:[ids[0],'missing'],imageRevision:config(asset,base),model:choice},active));
+});
 test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});

@@ -5,12 +5,17 @@ import {imageRevisionSchema} from './image-revision.mjs';
 import {resolvedReferences} from './project-profiles.mjs';
 export function saveImageRevision(owner,pid,b,active){return tx(()=>{
  const p=getProject(pid,owner);assert(p.revision===b.revision,'내용이 변경되었습니다. 다시 불러와 주세요.',409);assert(!active(p),'진행 중인 작업이 끝난 뒤 수정해 주세요.');
- const found=findUnit(p,b.unit);assert(found&&!(found.target===found.scene&&found.scene.shots?.length),'수정할 씬 또는 샷을 선택해 주세요.');
+ const ids=b.units??[b.unit];assert(Array.isArray(ids)&&ids.length>0&&new Set(ids).size===ids.length&&ids.includes(b.unit),'적용할 장면을 선택해 주세요.');
+ const targets=ids.map(uid=>{const found=findUnit(p,uid);assert(found&&!(found.target===found.scene&&found.scene.shots?.length),'수정할 씬 또는 샷을 선택해 주세요.');return found;});
  const value=b.imageRevision===null?null:imageRevisionSchema.parse(b.imageRevision);
  const model=validateChoice('image',b.model);assert(['nano-banana','gpt-image'].includes(model.model),'수정 재생성은 GPT Image 또는 Gemini 이미지 모델을 선택해 주세요.');
- found.target.imageRevision=value;found.target.generationSettings={...found.target.generationSettings,image:model};
- if(value)resolvedReferences(p,findUnit(p,b.unit).unit);
- found.target.revision=(found.target.revision||0)+1;found.target.imageApproved=false;found.target.videoApproved=false;found.scene.imageApproved=false;found.scene.videoApproved=false;
+ for(const found of targets){
+  const baseImage=found.target.id===b.unit?value?.baseImage:(value?.baseImage?found.target.image?.id||null:null);
+  found.target.imageRevision=value?{...value,baseImage,references:found.target.id===b.unit?value.references:value.references.filter(r=>r.id!==baseImage)}:null;
+  found.target.generationSettings={...found.target.generationSettings,image:model};
+  if(value)resolvedReferences(p,findUnit(p,found.target.id).unit);
+  found.target.revision=(found.target.revision||0)+1;found.target.imageApproved=false;found.target.videoApproved=false;found.scene.imageApproved=false;found.scene.videoApproved=false;
+ }
  p.previewReview=null;p.revision++;saveProject(p);audit(owner,'image.revision-settings',pid);return p;
 });}
 // A caller supplies the same active-job gate used by other project mutations.

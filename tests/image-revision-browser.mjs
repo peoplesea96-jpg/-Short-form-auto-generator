@@ -1,4 +1,4 @@
-import {chromium} from '@playwright/test';
+import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
@@ -24,16 +24,19 @@ try{
  await page.getByRole('button',{name:'3 장면 이미지',exact:true}).click();
  await page.getByRole('button',{name:'이 이미지 수정·재생성',exact:true}).click();
  const panel=page.getByRole('region',{name:'이미지 수정·재생성'});
+ await expect(panel.getByLabel('수정할 기존 이미지')).toHaveValue(oldImage.id);
  await panel.getByLabel('어떻게 수정할까요?').fill('구도는 유지하고 파란색 라벨을 원본의 초록색으로 수정');
  await panel.getByLabel('참조 1의 용도').selectOption('identity');
  await panel.getByLabel('수정 생성 모델').selectOption('nano-banana');
- await panel.getByRole('button',{name:'수정 조건 저장',exact:true}).click();
+ await panel.getByLabel('수정 조건 적용 범위').selectOption('all');
+ await expect(panel.getByLabel('수정할 기존 이미지')).toHaveValue(oldImage.id);
+ await panel.getByRole('button',{name:'3개 장면 수정 조건 저장',exact:true}).click();
  await panel.getByRole('button',{name:'이 조건으로 재생성 · 비용 확인'}).click();
  const dialog=page.getByRole('dialog',{name:'수정 이미지 생성 비용 확인'});await dialog.waitFor();
  assert.equal(db.prepare('SELECT count(*) n FROM jobs WHERE project=?').get(p.id).n,0);
  await dialog.getByRole('button',{name:'비용 확인 후 재생성'}).click();
  await panel.getByRole('status').filter({hasText:'수정 후보 생성을 접수'}).waitFor();
- const job=db.prepare('SELECT * FROM jobs WHERE project=?').get(p.id),snapshot=JSON.parse(job.input);assert.equal(job.status,'queued');assert.deepEqual(snapshot.referenceSets[p.scenes[0].id].map(x=>x.role),['edit_base','identity']);assert.equal(snapshot.selected[0].imageRevision.baseImage,oldImage.id);assert.match(snapshot.selected[0].imageRevision.instructions,/초록색/);
+ const job=db.prepare('SELECT * FROM jobs WHERE project=?').get(p.id),snapshot=JSON.parse(job.input);assert.equal(job.status,'queued');assert.equal(snapshot.selected.length,3);assert.equal(snapshot.selected[1].imageRevision.baseImage,null);assert.equal(snapshot.selected[2].imageRevision.references[0].id,asset.id);assert.equal(job.reserved,120);assert.deepEqual(snapshot.referenceSets[p.scenes[0].id].map(x=>x.role),['edit_base','identity']);assert.equal(snapshot.selected[0].imageRevision.baseImage,oldImage.id);assert.match(snapshot.selected[0].imageRevision.instructions,/초록색/);
  await page.reload();await page.getByRole('button',{name:/아바타 연결 실제 API 검증/}).click();await page.getByRole('button',{name:'3 장면 이미지',exact:true}).click();assert.match(await page.getByLabel('어떻게 수정할까요?').inputValue(),/초록색/);
  await page.screenshot({path:path.join(out,'desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'mobile.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
  const result={passed:true,realLocalApi:true,savedAndReloaded:true,quoteBeforeEnqueue:true,baseAndIdentityReferences:true,providerExecuted:false,workerStarted:false,paidCalls:0,output:out};await writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
