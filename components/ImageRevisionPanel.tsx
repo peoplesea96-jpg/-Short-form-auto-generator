@@ -12,7 +12,7 @@ export default function ImageRevisionPanel({project,unit,disabled,preview,onRefr
  useEffect(()=>{setForm(unit.imageRevision||defaults(project));setModel(modelDefault);setTicket(null);setError('');setMessage('');},[unit.id,JSON.stringify(unit.imageRevision),modelDefault]);
  useEffect(()=>{if(baseRequest?.unit===unit.id){setForm((f:Any)=>({...f,baseImage:baseRequest?.id}));document.getElementById('image-revision-'+unit.id)?.scrollIntoView({behavior:'smooth',block:'start'});}},[baseRequest?.token,unit.id]);
  const candidates=[...new Map([...(unit.image?[unit.image]:[]),...(unit.candidates?.image||[])].map((a:Any)=>[a.id,a])).values()] as Any[];
- const units=project.scenes.flatMap((s:Any)=>s.shots?.length?s.shots:[s]);
+ const units=project.scenes.flatMap((s:Any)=>s.shots?.length?s.shots.map((shot:Any)=>({...shot,scriptApproved:s.scriptApproved})):[s]);
  const sources=[...new Map([...project.assets,...units.flatMap((s:Any)=>[...(s.image?[s.image]:[]),...(s.candidates?.image||[])])].map((a:Any)=>[a.id,a])).values()] as Any[];
  const choice={model,resolution:model==='gpt-image'?'1024x1536':'1K'};
  const targets=scope==='all'?units:[unit];
