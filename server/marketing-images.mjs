@@ -41,7 +41,7 @@ export async function marketingCatalog({force=false,call=request,pause=ms=>new P
 function planMarketing(owner,pid,value,preset){
  credentialReady();signingKey();pageUrl(process.env.APP_URL||'');
  const r=requestSchema.parse(value),p=getProject(pid,owner);assert(!p.adPlanning?.enabled,'새 광고 제작 흐름은 사전 비용을 확인할 수 있는 이미지 모델을 선택해 주세요.');const found=findUnit(p,r.unit);
- assert(!found||!['presenter_product','presenter'].includes(found.unit.visualRole),'아바타 장면은 여러 참조를 전달하는 GPT Image 또는 Gemini 이미지 모델을 선택해 주세요.');assert(found&&!(found.target===found.scene&&found.scene.shots?.length),'이미지를 만들 씬 또는 샷을 선택해 주세요.');
+ assert(!found?.unit.imageRevision,'수정 지시·복수 참조 재생성은 이미지 수정 패널에서 GPT Image 또는 Gemini로 실행해 주세요.');assert(!found||!['presenter_product','presenter'].includes(found.unit.visualRole),'아바타 장면은 여러 참조를 전달하는 GPT Image 또는 Gemini 이미지 모델을 선택해 주세요.');assert(found&&!(found.target===found.scene&&found.scene.shots?.length),'이미지를 만들 씬 또는 샷을 선택해 주세요.');
  assert(found.scene.scriptApproved,'대본을 먼저 승인해 주세요.');
  assert(!p.productSheet||p.productSheet.approved,'상품 시트를 먼저 승인해 주세요.');
  assert(p.brief.rights===true,'상품 이미지 사용 권한을 확인해 주세요.');

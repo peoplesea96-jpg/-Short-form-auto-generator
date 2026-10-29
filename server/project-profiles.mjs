@@ -1,3 +1,4 @@
+import {revisionReferences} from './image-revision.mjs';
 import {presenterReference} from './avatars.mjs';
 import {z} from 'zod';
 import {assert,hash,id} from './db.mjs';
@@ -16,8 +17,9 @@ function productReferences(p,s,now=Date.now()){
  return refs.map(r=>{const a=p.assets.find(a=>a.id===r.id);assert(a&&a.expires>now,'상품 시트 원본 이미지가 만료되었습니다. 다시 업로드해 주세요.');return {...a,role:r.role};}).sort((a,b)=>(a.role==='mood'?1:0)-(b.role==='mood'?1:0)).slice(0,6);
 }
 export function resolvedReferences(p,s,now=Date.now()){
- const product=productReferences(p,s,now),presenter=presenterReference(p,s);
- return presenter?[...product.slice(0,5),presenter]:product;
+ const revision=revisionReferences(p,s,now),product=s.imageRevision?.useProjectReferences===false?[]:productReferences(p,s,now),presenter=presenterReference(p,s);
+ const combined=[...revision,...product.filter(x=>!revision.some(r=>r.id===x.id))];if(s.imageRevision)assert(combined.length+(presenter?1:0)<=6,'참조는 인물 포함 최대 6장입니다. 프로젝트 참조 사용을 끄거나 선택 수를 줄여 주세요.');
+ return presenter?[...combined.slice(0,5),presenter]:combined;
 }
 export function defaultVoice(){return {provider:'gemini',voiceId:process.env.GEMINI_TTS_VOICE||'Sulafat',model:process.env.GEMINI_TTS_MODEL||'gemini-3.1-flash-tts-preview',instructions:'자연스럽고 따뜻하며 명확한 한국어 광고 내레이션',stability:0.65,similarity:0.8,speed:1};}
 export const voiceSchema=z.object({provider:z.enum(['gemini','elevenlabs']),voiceId:z.string().regex(/^[A-Za-z0-9_-]{1,100}$/),model:z.string().regex(/^[A-Za-z0-9_.-]{1,100}$/),instructions:text(1000),stability:z.number().min(0).max(1),similarity:z.number().min(0).max(1),speed:z.number().min(.7).max(1.2)});

@@ -23,7 +23,7 @@ export function validateDirection(p){
  const d=directionSchema.parse(p.productionDirection),r=directionReport(p);
  check(r.units.length&&r.units.every(s=>s.visualRole&&s.presentation),'각 화면의 상품·인물 역할과 표현 방식을 지정해 주세요.');
  check(r.units.every(s=>s.presentation==='scene'),'원본 사진 카드를 제거하고 공간 안의 상품 시연·근접 영상으로 구성해 주세요.');
- check(r.units.every(s=>!['product','presenter_product'].includes(s.visualRole)||s.referenceMode!=='none'),'상품 노출 화면에는 상품 없는 장면 참조 모드를 사용할 수 없습니다.');
+ check(r.units.every(s=>!['product','presenter_product'].includes(s.visualRole)||s.referenceMode!=='none'||s.imageRevision?.references?.some(r=>['identity','package'].includes(r.role))),'상품 노출 화면에는 상품 없는 장면 참조 모드를 사용할 수 없습니다.');
  check(['product','presenter_product'].includes(r.units[0].visualRole),'첫 화면부터 상품 또는 완제품을 보여 주세요. 인물 등장 시 함께 들거나 시연해야 합니다.');
  check(r.units.every(s=>s.visualRole!=='presenter'),'인물 단독 화면 대신 상품을 함께 보여 주세요.');
  check(r.productRatio+1e-6>=d.minProductRatio,`상품 노출을 전체 길이의 ${Math.round(d.minProductRatio*100)}% 이상으로 구성해 주세요.`);

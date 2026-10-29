@@ -1,0 +1,40 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
+const out=path.resolve('test-results/image-revision-e2e-'+Date.now());await mkdir(out,{recursive:true});process.env.DATA_DIR=path.join(out,'data');
+const {db,hash,saveProject}=await import('../server/db.mjs');
+const {createProject}=await import('../server/domain.mjs');
+const {storeFile}=await import('../server/media.mjs');
+const owner='avatar-browser@example.test',raw=randomBytes(32).toString('hex');
+db.prepare('INSERT INTO accounts VALUES(?,?,?,?,?,?)').run('avatar-browser',owner,'not-a-login-password',1,Date.now(),Date.now());db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(hash(raw),owner,Date.now()+3600000);
+const p=createProject(owner,{title:'아바타 연결 실제 API 검증',kind:'product',description:'실제 API와 저장소를 검증하는 테스트 상품입니다.',audience:'테스트',facts:'',source:'',cta:'',rights:true,productionDirection:{enabled:true,minProductRatio:.8,maxPresenterRatio:.4,captionMode:'none'}});
+const png=await sharp({create:{width:32,height:32,channels:3,background:'#bc7541'}}).png().toBuffer(),asset=await storeFile(p.id,owner,png,'image/png','product.png');p.assets=[asset];
+p.scenes=Array.from({length:3},(_,i)=>({id:'fixture-scene-'+i,seconds:10,narration:'',speechMode:'none',visual:i?'상품 근접':'상품을 든 인물',visualRole:'product',presentation:'scene',evidence:'',fiction:true,revision:1,asset:asset.id,referenceMode:'manual',scriptApproved:true,imageApproved:false,audioApproved:false,videoApproved:false,history:[]}));const oldImage=await storeFile(p.id,owner,png,'image/png','wrong-label.png');p.scenes[0].image=oldImage;p.scenes[0].candidates={image:[{...oldImage,generation:{label:'GPT Image 2.5'}}]};saveProject(p);
+const base='http://127.0.0.1:3117',env={...process.env,DATA_DIR:process.env.DATA_DIR,APP_URL:base,SESSION_SECRET:randomBytes(32).toString('hex'),GEMINI_API_KEY:'fixture-not-valid',GEMINI_IMAGE_USD_PER_IMAGE:'.04',USD_TO_KRW:'1000',RATES_REVIEWED_AT:'fixture',OPENAI_API_KEY:'',HIGGSFIELD_API_KEY:'',ELEVENLABS_API_KEY:''};
+const server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','-H','127.0.0.1','-p','3117'],{env,stdio:'pipe',windowsHide:true});let log='';server.stdout.on('data',b=>log+=b.toString());server.stderr.on('data',b=>log+=b.toString());
+let browser;
+try{
+ for(let i=0;i<40;i++){try{if((await fetch(base)).ok)break;}catch{}await new Promise(r=>setTimeout(r,250));}
+ browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.addCookies([{name:'studio_session',value:raw,url:base,httpOnly:true,sameSite:'Lax'}]);const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base);await page.getByRole('button',{name:/아바타 연결 실제 API 검증/}).click();
+ await page.getByRole('button',{name:'3 장면 이미지',exact:true}).click();
+ await page.getByRole('button',{name:'이 이미지 수정·재생성',exact:true}).click();
+ const panel=page.getByRole('region',{name:'이미지 수정·재생성'});
+ await panel.getByLabel('어떻게 수정할까요?').fill('구도는 유지하고 파란색 라벨을 원본의 초록색으로 수정');
+ await panel.getByLabel('참조 1의 용도').selectOption('identity');
+ await panel.getByLabel('수정 생성 모델').selectOption('nano-banana');
+ await panel.getByRole('button',{name:'수정 조건 저장',exact:true}).click();
+ await panel.getByRole('button',{name:'이 조건으로 재생성 · 비용 확인'}).click();
+ const dialog=page.getByRole('dialog',{name:'수정 이미지 생성 비용 확인'});await dialog.waitFor();
+ assert.equal(db.prepare('SELECT count(*) n FROM jobs WHERE project=?').get(p.id).n,0);
+ await dialog.getByRole('button',{name:'비용 확인 후 재생성'}).click();
+ await panel.getByRole('status').filter({hasText:'수정 후보 생성을 접수'}).waitFor();
+ const job=db.prepare('SELECT * FROM jobs WHERE project=?').get(p.id),snapshot=JSON.parse(job.input);assert.equal(job.status,'queued');assert.deepEqual(snapshot.referenceSets[p.scenes[0].id].map(x=>x.role),['edit_base','identity']);assert.equal(snapshot.selected[0].imageRevision.baseImage,oldImage.id);assert.match(snapshot.selected[0].imageRevision.instructions,/초록색/);
+ await page.reload();await page.getByRole('button',{name:/아바타 연결 실제 API 검증/}).click();await page.getByRole('button',{name:'3 장면 이미지',exact:true}).click();assert.match(await page.getByLabel('어떻게 수정할까요?').inputValue(),/초록색/);
+ await page.screenshot({path:path.join(out,'desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'mobile.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
+ const result={passed:true,realLocalApi:true,savedAndReloaded:true,quoteBeforeEnqueue:true,baseAndIdentityReferences:true,providerExecuted:false,workerStarted:false,paidCalls:0,output:out};await writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}finally{if(browser)await browser.close();server.kill();db.close();await writeFile(path.join(out,'server.log'),log);}
