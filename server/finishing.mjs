@@ -14,7 +14,7 @@ export function saveFinishing(owner,pid,b,active){return tx(()=>{const p=getProj
  else if(b.operation==='save')p.finishing=validateFinishing(p,b.finishing);
  else assert(false,'잘못된 편집 작업입니다.');
  p.revision++;saveProject(p);audit(owner,'finishing.'+b.operation,pid);return p;});}
-export const previewHash=p=>hash(JSON.stringify([p.productionDirection,p.scenes.map(s=>({id:s.id,speechMode:s.speechMode,visualRole:s.visualRole,presentation:s.presentation,narration:s.narration,visual:s.visual,motion:s.motion,audio:s.audio?.id,seconds:s.seconds,image:s.image?.id,shots:s.shots?.map(x=>({id:x.id,visualRole:x.visualRole,presentation:x.presentation,visual:x.visual,motion:x.motion,seconds:x.seconds,image:x.image?.id}))}))]));
+export const previewHash=p=>hash(JSON.stringify([p.cast?.presenter?.id,p.productionDirection,p.scenes.map(s=>({id:s.id,speechMode:s.speechMode,visualRole:s.visualRole,presentation:s.presentation,narration:s.narration,visual:s.visual,motion:s.motion,audio:s.audio?.id,seconds:s.seconds,image:s.image?.id,shots:s.shots?.map(x=>({id:x.id,visualRole:x.visualRole,presentation:x.presentation,visual:x.visual,motion:x.motion,seconds:x.seconds,image:x.image?.id}))}))]));
 export function audioFormat(bytes){
  if(bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WAVE')return 'wav';
  if(bytes.subarray(0,3).toString()==='ID3'||(bytes[0]===255&&(bytes[1]&254)===250))return 'mp3';

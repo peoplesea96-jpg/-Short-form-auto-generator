@@ -7,6 +7,8 @@ mkdirSync(dataDir,{recursive:true});
 export const db=new DatabaseSync(path.join(dataDir,'studio.sqlite'));
 db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
 CREATE TABLE IF NOT EXISTS detail_drafts(id TEXT PRIMARY KEY,owner TEXT NOT NULL,body TEXT NOT NULL,revision INTEGER NOT NULL,expires INTEGER NOT NULL,project TEXT);
+CREATE TABLE IF NOT EXISTS avatars(id TEXT PRIMARY KEY,owner TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS avatars_owner ON avatars(owner);
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,owner TEXT NOT NULL,body TEXT NOT NULL,deleted INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,project TEXT NOT NULL,owner TEXT NOT NULL,kind TEXT NOT NULL,scene TEXT,revision INTEGER NOT NULL,input TEXT NOT NULL,status TEXT NOT NULL,reserved INTEGER NOT NULL,actual INTEGER,month TEXT NOT NULL,provider_id TEXT,result TEXT,error TEXT,created INTEGER NOT NULL,updated INTEGER NOT NULL,idem TEXT UNIQUE NOT NULL);
 CREATE TABLE IF NOT EXISTS tokens(hash TEXT PRIMARY KEY,email TEXT NOT NULL,expires INTEGER NOT NULL);
