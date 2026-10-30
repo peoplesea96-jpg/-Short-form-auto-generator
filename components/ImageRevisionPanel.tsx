@@ -1,15 +1,18 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useId} from 'react';
+import {revisionReasons} from '../server/image-revision-reasons.mjs';
 type Any=Record<string,any>;
 const roles:Any={identity:'상품 모양·색상·라벨 기준',package:'포장·로고 기준',composition:'구도·배치만 참조',background:'배경만 참조',mood:'조명·분위기만 참조'};
 const defaults=(p:Any)=>({instructions:'',useProjectReferences:false,baseImage:null,references:p.assets.slice(0,1).map((a:Any)=>({id:a.id,role:'identity'}))});
 async function api(url:string,body?:Any){const r=await fetch('/api/'+url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);const data=await r.json();if(!r.ok)throw Error(data.error||'요청에 실패했습니다.');return data;}
-export default function ImageRevisionPanel({project,unit,disabled,preview,onRefresh,baseRequest}:{project:Any,unit:Any,disabled:boolean,preview:boolean,onRefresh:()=>Promise<void>,baseRequest?:Any|null}){
+export default function ImageRevisionPanel({project,unit,disabled,preview,onRefresh,baseRequest,inline=false}:{project:Any,unit:Any,disabled:boolean,preview:boolean,onRefresh:()=>Promise<void>,baseRequest?:Any|null,inline?:boolean}){
+ const instanceId=useId();
+ const initial=()=>unit.imageRevision||{...defaults(project),...(inline?{baseImage:unit.image?.id||null,references:defaults(project).references.filter((r:Any)=>r.id!==unit.image?.id)}:{})};
  const [scope,setScope]=useState('current');
  const originalModel=unit.generationSettings?.image||project.generationSettings?.image;
  const modelDefault=originalModel?.model==='nano-banana'?'nano-banana':'gpt-image';
- const [form,setForm]=useState<Any>(unit.imageRevision||defaults(project)),[model,setModel]=useState(modelDefault),[pending,setPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[ticket,setTicket]=useState<Any|null>(null);
- useEffect(()=>{setForm(unit.imageRevision||defaults(project));setModel(modelDefault);setTicket(null);setError('');setMessage('');},[unit.id,JSON.stringify(unit.imageRevision),modelDefault]);
+ const [form,setForm]=useState<Any>(initial()),[model,setModel]=useState(modelDefault),[pending,setPending]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[ticket,setTicket]=useState<Any|null>(null);
+ useEffect(()=>{setForm(initial());setModel(modelDefault);setTicket(null);setError('');setMessage('');},[unit.id,JSON.stringify(unit.imageRevision),modelDefault,inline,unit.image?.id]);
  useEffect(()=>{if(baseRequest?.unit===unit.id){setForm((f:Any)=>({...f,baseImage:baseRequest?.id}));document.getElementById('image-revision-'+unit.id)?.scrollIntoView({behavior:'smooth',block:'start'});}},[baseRequest?.token,unit.id]);
  const candidates=[...new Map([...(unit.image?[unit.image]:[]),...(unit.candidates?.image||[])].map((a:Any)=>[a.id,a])).values()] as Any[];
  const units=project.scenes.flatMap((s:Any)=>s.shots?.length?s.shots.map((shot:Any)=>({...shot,scriptApproved:s.scriptApproved})):[s]);
@@ -21,7 +24,8 @@ export default function ImageRevisionPanel({project,unit,disabled,preview,onRefr
  const locked=disabled||pending||preview;
  async function task(fn:()=>Promise<void>){setPending(true);setError('');setMessage('');try{await fn();}catch(e:any){setError(e.message);}finally{setPending(false);}}
  const change=(next:Any)=>{setForm(next);setTicket(null);};
- return <section className="panel" id={'image-revision-'+unit.id} aria-label="이미지 수정·재생성"><h3>이미지 수정·재생성</h3><p>잘못 바뀐 상품은 원본을 기준으로 바로잡고, 기존 이미지에서는 원하는 구도만 유지할 수 있습니다. 수정 결과는 새 후보로 추가됩니다.</p>
+ return <section className="panel" id={inline?'inline-image-revision-'+instanceId:'image-revision-'+unit.id} aria-label="이미지 수정·재생성"><h3>이미지 수정·재생성</h3><p>잘못 바뀐 상품은 원본을 기준으로 바로잡고, 기존 이미지에서는 원하는 구도만 유지할 수 있습니다. 수정 결과는 새 후보로 추가됩니다.</p>
+ <label>수정 사유<select aria-label="수정 사유" disabled={locked} value={form.reason||''} onChange={e=>change({...form,reason:e.target.value||undefined})}><option value="">수정 사유 선택</option>{Object.entries(revisionReasons).map(([key,label])=><option key={key} value={key}>{String(label)}</option>)}</select></label>
  <label>수정 조건 적용 범위<select disabled={locked} value={scope} onChange={e=>{setScope(e.target.value);setTicket(null);}}><option value="current">현재 장면만</option><option value="all">모든 장면 · {units.length}개</option></select></label><p>적용 대상 {targets.length}개. 모든 장면을 선택하면 참조·수정 지시·모델을 함께 저장하고 재생성합니다. 기존 이미지 수정 시 다른 장면은 각자의 현재 이미지를 사용합니다. 새로 생성 시에는 각 장면의 대본과 선택한 참조를 사용합니다.</p>
  <label>수정할 기존 이미지<select disabled={locked} value={form.baseImage||''} onChange={e=>change({...form,baseImage:e.target.value||null,references:form.references.filter((r:Any)=>r.id!==e.target.value)})}><option value="">기존 결과 없이 참조로 새로 생성</option>{candidates.map((c,i)=><option key={c.id} value={c.id} disabled={c.expires<Date.now()}>후보 {i+1} · {c.generation?.label||'기존 결과'}</option>)}</select></label>{form.baseImage&&<img src={candidates.find(c=>c.id===form.baseImage)?.url} alt="수정 대상 이미지" style={{width:150,maxHeight:240,objectFit:'contain'}}/>}
  <label>어떻게 수정할까요?<textarea disabled={locked} maxLength={2000} value={form.instructions} placeholder="예: 손과 배수구 구도는 유지. 용기 모양과 초록색 라벨은 상품 원본과 일치시키고 파란 라벨은 제거." onChange={e=>change({...form,instructions:e.target.value})}/></label>
