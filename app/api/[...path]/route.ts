@@ -1,3 +1,4 @@
+import {applyNarrationDraft} from '../../../server/narration-rewrite.mjs';
 import {listAvatars,registerAvatar,saveCast} from '../../../server/avatars.mjs';
 import {saveFinishing,uploadAudio} from '../../../server/finishing.mjs';
 import {savePlanning} from '../../../server/ad-planning.mjs';
@@ -56,7 +57,7 @@ if(action==='product-sheet')return json(tx(()=>{const current=getProject(pid,own
 if(action==='voice-profile'){const profile=await validateVoice(b.profile);return json(tx(()=>{const current=getProject(pid,owner);assert(current.revision===b.revision,'다른 변경이 있습니다. 새로고침해 주세요.',409);assert(!active(current),'진행 중인 작업을 먼저 확인해 주세요.');if(!current.voiceProfile||voiceHash(current.voiceProfile)!==voiceHash(profile)){current.voiceProfile=profile;for(const s of current.scenes){s.audioApproved=false;s.videoApproved=false;for(const shot of s.shots||[])shot.videoApproved=false;}current.narrationComposition=narrationComposition(current);current.revision++;saveProject(current);audit(owner,'voice.profile',pid);}return current;}));}
 if(action==='marketing-quote')return json(await quoteMarketing(owner,pid,b));
 if(action==='marketing-generate'){assert(b.confirmed===true,'자료 전달·유료 생성 확인이 필요합니다.');return json(await enqueueMarketing(owner,pid,b.quote,b.idempotencyKey),202);}
-if(action==='image-revision')return json(saveImageRevision(owner,pid,b,active));
+if(action==='narration-draft')return json(applyNarrationDraft(owner,pid,b,active));if(action==='image-revision')return json(saveImageRevision(owner,pid,b,active));
 if(action==='cast')return json(saveCast(owner,pid,b,active));
 if(action==='finishing')return json(saveFinishing(owner,pid,b,active));
 if(action==='planning')return json(savePlanning(owner,pid,b,active));

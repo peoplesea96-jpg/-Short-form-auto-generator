@@ -1,0 +1,19 @@
+import {z} from 'zod';
+import {assert,hash,id,tx,getProject,saveProject,audit} from './db.mjs';
+import {copyPrompt,copyInput} from './copy-guidance.mjs';
+import {copySchema,copyJsonSchema} from './copy-schema.mjs';
+import {narrationComposition} from './project-profiles.mjs';
+export const rewriteInput=p=>({context:copyInput(p),brief:p.brief,planning:p.adPlanning,scenes:p.scenes.map(s=>({id:s.id,seconds:s.seconds,narration:s.narration,visual:s.visual,shots:s.shots?.map(x=>({visual:x.visual,motion:x.motion})),speechMode:s.speechMode||'voiceover'}))});
+export const rewriteHash=p=>hash(JSON.stringify(rewriteInput(p)));
+export const rewriteTokens=p=>Math.max(4000,p.scenes.length*500);
+const item=z.object({id:z.string(),narration:z.string().trim().max(500),evidence:z.string().max(600),speechMode:z.enum(['voiceover','none']),copy:copySchema}).strict();
+export function validateRewrite(p,raw){const rows=z.array(item).length(p.scenes.length).parse(raw);assert(new Set(rows.map(s=>s.id)).size===rows.length&&rows.every(s=>p.scenes.some(x=>x.id===s.id)),'내레이션 결과의 씬 목록이 일치하지 않습니다.');assert(rows.every(s=>(s.speechMode==='none')===!s.narration.trim()),'발화 방식과 대사가 일치하지 않습니다.');return p.scenes.map(s=>rows.find(x=>x.id===s.id));}
+export async function generateNarrationRewrite(p){
+ const props={id:{type:'string'},narration:{type:'string'},evidence:{type:'string'},speechMode:{type:'string',enum:['voiceover','none']},copy:copyJsonSchema};
+ const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MODEL,store:false,max_output_tokens:rewriteTokens(p),instructions:copyPrompt(p)+' 기존 씬 전체의 내레이션을 새 광고 카피로 다시 작성한다. 씬 ID와 개수·순서·길이·화면·샷은 변경하지 않는다. 기존 잘못된 대사는 참고일 뿐 모방하지 않는다. 각 화면 및 배정 시간에 맞춰 narration/evidence/copy만 작성한다. 무발화는 필요할 때만 speechMode=none. 출력은 검토할 후보이며 승인본을 대체하지 않는다.',input:JSON.stringify(rewriteInput(p)),text:{format:{type:'json_schema',name:'narration_rewrite',strict:true,schema:{type:'object',properties:{scenes:{type:'array',items:{type:'object',properties:props,required:Object.keys(props),additionalProperties:false}}},required:['scenes'],additionalProperties:false}}}}),signal:AbortSignal.timeout(180000)});
+ if(!r.ok){const error=new Error(`내레이션 재생성 API 오류 (${r.status})`);error.definitive=r.status>=400&&r.status<500;throw error;}
+ const data=await r.json(),text=(data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('');
+ return {scenes:validateRewrite(p,JSON.parse(text).scenes),cost:Math.ceil(((data.usage?.input_tokens||0)*Number(process.env.OPENAI_INPUT_KRW_PER_MILLION)+(data.usage?.output_tokens||0)*Number(process.env.OPENAI_OUTPUT_KRW_PER_MILLION))/1e6)};
+}
+export function storeNarrationDraft(p,input,scenes){p.narrationDraft={id:id(),created:Date.now(),baseHash:rewriteHash(input),scenes:validateRewrite(input,scenes)};}
+export function applyNarrationDraft(owner,pid,b,active){return tx(()=>{const p=getProject(pid,owner);assert(p.revision===b.revision,'내용이 변경되었습니다. 다시 확인해 주세요.',409);assert(!active(p),'진행 중인 작업을 먼저 확인해 주세요.');const draft=p.narrationDraft;assert(draft&&draft.id===b.draft,'적용할 내레이션 후보가 없습니다.');if(b.discard!==true){assert(draft.baseHash===rewriteHash(p),'씬 또는 상품 자료가 변경되었습니다. 내레이션 후보를 다시 생성해 주세요.');const rows=validateRewrite(p,draft.scenes);p.narrationHistory=[...(p.narrationHistory||[]),{created:Date.now(),scenes:structuredClone(p.scenes)}].slice(-10);p.scenes=p.scenes.map((s,i)=>({...s,...rows[i],revision:(s.revision||0)+1,scriptApproved:false,copyApproval:null,audio:null,audioApproved:false,videoApproved:false,shots:s.shots?.map(x=>({...x,videoApproved:false}))}));p.previewReview=null;p.narrationComposition=narrationComposition(p);}p.narrationDraft=null;p.revision++;saveProject(p);audit(owner,b.discard?'narration.discard':'narration.apply',pid);return p;});}
