@@ -33,7 +33,7 @@ export function validateDirection(p){
 export function directionPrompt(p){
  if(!p.productionDirection?.enabled)return '';
  const d=directionSchema.parse(p.productionDirection);
- return `상품 중심 광고 규칙: 첫 화면부터 상품 또는 완제품 노출. 인물을 사용할 때는 상품을 들거나 사용 중인 presenter_product로 지정하고 인물 단독 presenter 금지. 상품 노출 시간 최소 ${d.minProductRatio*100}%, 인물 포함 시간 최대 ${d.maxPresenterRatio*100}%. 인물이 반드시 필요한 것은 아니다. 나머지는 상품 질감·기능·사용 장면 중심. 원본은 참조 자료이며 여백 위 사진 카드/슬라이드/카탈로그로 출력하지 않는다. presentation=scene만 사용. 음식 외 카테고리도 해당 제품의 사용 시연·결과에 적용. 얼굴·의상·공간 배치와 상품 크기·재질·형태를 샷 사이 유지. 추측한 상품 특성 금지. speechMode는 voiceover 또는 none만 사용. 현재 앱은 립싱크 미지원이므로 인물이 말하는 연기를 지시하지 않는다. 마지막에도 상품 영상을 유지하고 제공된 상품명을 내레이션으로 전달. ${d.captionMode==='none'?'자막·강조 문구·화면 CTA 없음.':''}`;
+ return `상품 중심 광고 규칙: 첫 화면부터 상품 또는 완제품 노출. 인물을 사용할 때는 상품을 들거나 사용 중인 presenter_product로 지정하고 인물 단독 presenter 금지. 상품 노출 시간 최소 ${d.minProductRatio*100}%, 인물 포함 시간 최대 ${d.maxPresenterRatio*100}%. 인물이 반드시 필요한 것은 아니다. 나머지는 상품 질감·기능·사용 장면 중심. 원본은 참조 자료이며 여백 위 사진 카드/슬라이드/카탈로그로 출력하지 않는다. presentation=scene만 사용. 음식 외 카테고리도 해당 제품의 사용 시연·결과에 적용. 얼굴·의상·공간 배치와 상품 크기·재질·형태를 샷 사이 유지. 추측한 상품 특성 금지. speechMode는 voiceover 또는 none만 사용. 현재 앱은 립싱크 미지원이므로 인물이 말하는 연기를 지시하지 않는다. 마지막에도 상품 영상을 유지한다. 확인된 고유 상품명이 있을 때만 이름을 자연스럽게 발화하고 광고 제목을 상품명으로 읽지 않는다. 화면 노출 지시는 visual에만 적용하며 내레이션으로 읽지 않는다. ${d.captionMode==='none'?'자막·강조 문구·화면 CTA 없음.':''}`;
 }
 export function visualDirection(p,s){
  if(!p.productionDirection?.enabled)return '';
