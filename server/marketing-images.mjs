@@ -78,7 +78,7 @@ export async function enqueueMarketing(owner,pid,q,idem){
   const plan=planMarketing(owner,pid,signed.request,catalog.items.find(p=>p.id===signed.request.preset));
   assert(plan.project.revision===signed.revision&&plan.fingerprint===signed.fingerprint&&plan.preset.name===signed.preset.name,'내용이 변경되었습니다. 생성 조건을 다시 확인해 주세요.',409);
   assert(!active(plan.project),'이미 진행 중인 작업이 있습니다.',409);
-  const b=budget(owner,pid);assert(b.project<10000&&b.month<100000,'기존 사용 비용이 프로젝트 또는 월간 한도에 도달했습니다. 운영자에게 문의해 주세요.');
+  const b=budget(owner,pid);assert(b.month<b.monthLimit,'기존 사용 비용이 월간 한도에 도달했습니다. 운영자에게 문의해 주세요.');
   const jid=id(),now=Date.now();const input={project:plan.project,selected:[plan.unit],marketing:{...plan.request,costType:'post-generation',preset:plan.preset,fingerprint:plan.fingerprint}};
   db.prepare('INSERT INTO jobs(id,project,owner,kind,scene,revision,input,status,reserved,month,created,updated,idem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(jid,pid,owner,'marketing-image',plan.unit.id,plan.project.revision,JSON.stringify(input),'queued',0,month(),now,now,idem);
   audit(owner,'enqueue.marketing-image',pid);return {id:jid,status:'queued'};

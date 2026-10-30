@@ -39,4 +39,14 @@ test('bulk corrections preserve per-scene bases and quote only requested units',
  assert.throws(()=>quote(owner,p.id,'image',[ids[0],'missing']));assert.throws(()=>quote(owner,p.id,'image',[]));assert.throws(()=>quote(owner,p.id,'image',[ids[0],ids[0]]));
  assert.throws(()=>saveImageRevision(owner,p.id,{revision:p.revision,unit:ids[0],units:[ids[0],'missing'],imageRevision:config(asset,base),model:choice},active));
 });
+test('project spend above 10000 is allowed while monthly cap still blocks',async()=>{
+ let {p,asset,base}=await fixture();p=saveImageRevision(owner,p.id,{revision:p.revision,unit:p.scenes[0].id,imageRevision:config(asset,base),model:choice},active);
+ const first=enqueue(owner,p.id,quote(owner,p.id,'image',p.scenes[0].id),'cap-first-'+id());
+ db.prepare("UPDATE jobs SET status='done',actual=12000 WHERE id=?").run(first.id);
+ const q=quote(owner,p.id,'image',p.scenes[0].id);assert.equal(q.budget.projectLimit,null);
+ const second=enqueue(owner,p.id,q,'cap-second-'+id());assert.equal(second.status,'queued');
+ db.prepare("UPDATE jobs SET status='done',actual=100000 WHERE id=?").run(first.id);db.prepare("DELETE FROM jobs WHERE id=?").run(second.id);
+ assert.throws(()=>enqueue(owner,p.id,quote(owner,p.id,'image',p.scenes[0].id),'cap-third-'+id()),/월간 예산/);
+ db.prepare('DELETE FROM jobs WHERE id=?').run(first.id);
+});
 test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});
