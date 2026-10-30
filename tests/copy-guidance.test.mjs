@@ -36,7 +36,7 @@ test('both generation routes carry common policy, source contract and copy schem
  const old=globalThis.fetch;let body;globalThis.fetch=async(url,opt)=>{body=JSON.parse(opt.body);return new Response(JSON.stringify({output:[{content:[{type:'output_text',text:JSON.stringify({scenes:[]})}]}],usage:{}}));};
  try{for(const mode of ['none','narration']){const p=fixture();p.productionDirection={enabled:true,minProductRatio:.8,maxPresenterRatio:.4,captionMode:mode};if(mode==='narration')p.productionDirection.captionMode='narration';
  // Both supported caption modes exercise the actual direction schema.
- await generateScript(p);assert.ok(body.text.format.schema.properties.scenes.items.properties.copy);assert.match(body.instructions,/narration-v0.2.1/);assert.doesNotMatch(body.instructions,/CTA는 마지막 장면 위에 표시되므로/);assert.equal(JSON.parse(body.input).copyContext.sources[1].status,'source_observed');
+ await generateScript(p);assert.ok(body.text.format.schema.properties.scenes.items.properties.copy);assert.match(body.instructions,/narration-v0.3-sales/);assert.doesNotMatch(body.instructions,/CTA는 마지막 장면 위에 표시되므로/);assert.equal(JSON.parse(body.input).copyContext.sources[1].status,'source_observed');
  try{await requestPlan(p,'storyboard');}catch{}assert.match(body.instructions,/소비자에게 실제로/);assert.ok(body.text.format.schema.properties.scenes.items.properties.copy);if(mode==='none')assert.match(body.instructions,/무자막: 화면 CTA/);
  }}finally{globalThis.fetch=old;}
 });
