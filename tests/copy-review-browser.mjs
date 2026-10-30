@@ -22,15 +22,17 @@ try{
  browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.addCookies([{name:'studio_session',value:raw,url:base,httpOnly:true,sameSite:'Lax'}]);const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base);await page.getByRole('button',{name:/아바타 연결 실제 API 검증/}).click();
  const reviews=page.getByRole('region',{name:'광고 카피 검수'});await expect(reviews).toHaveCount(3);
- await page.getByRole('button',{name:'대본 일괄 승인 (3)',exact:true}).click();await expect(page.getByText('카피 검수의 출처·상품·조건 확인 항목을 체크해 주세요.',{exact:true})).toBeVisible();
  await reviews.first().getByLabel('확인해야 할 정보',{exact:true}).fill('상품명과 SKU 확인');
  await page.getByRole('button',{name:'변경사항 저장',exact:true}).click();
- for(let i=0;i<3;i++)await reviews.nth(i).getByRole('checkbox',{name:/상품명·옵션과/}).check();
+ for(let i=0;i<3;i++)await expect(reviews.nth(i).getByRole('checkbox',{name:/상품명·옵션과/})).not.toBeChecked();
  await page.getByRole('button',{name:'대본 일괄 승인 (3)',exact:true}).click();await expect(page.getByRole('button',{name:'다음 단계 →',exact:true})).toBeEnabled();
+ for(let i=0;i<3;i++)await expect(reviews.nth(i).getByRole('checkbox',{name:/상품명·옵션과/})).toBeChecked();
+ await page.reload();await page.getByRole('button',{name:/아바타 연결 실제 API 검증/}).click();
+ for(let i=0;i<3;i++)await expect(reviews.nth(i).getByRole('checkbox',{name:/상품명·옵션과/})).toBeChecked();
  let current=JSON.parse(db.prepare('SELECT body FROM projects WHERE id=?').get(p.id).body);assert.ok(current.scenes.every(scene=>scene.copyApproval?.hash));assert.deepEqual(current.scenes[0].copy.missingInformation,['상품명과 SKU 확인']);
  await page.getByRole('button',{name:'4 음성 검토',exact:true}).click();await page.getByLabel('씬 2 내레이션 수정',{exact:true}).fill('다른 생활 상황을 살펴보세요.');await page.getByRole('button',{name:'수정 대본 저장',exact:true}).nth(1).click();
  await expect(reviews.nth(1).getByRole('checkbox',{name:/상품명·옵션과/})).not.toBeChecked();
  current=JSON.parse(db.prepare('SELECT body FROM projects WHERE id=?').get(p.id).body);assert.equal(current.scenes[1].scriptApproved,false);assert.equal(current.scenes[1].imageApproved,true);assert.equal(current.scenes[1].audio,null);
  await page.screenshot({path:path.join(out,'desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'mobile.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
- const result={passed:true,reviewRequired:true,copyMetadataSaved:true,batchApproval:true,editInvalidatesReview:true,imagePreserved:true,paidCalls:0,output:out};await writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+ const result={passed:true,bulkReviewIncluded:true,reloadPreservesChecks:true,copyMetadataSaved:true,batchApproval:true,editInvalidatesReview:true,imagePreserved:true,paidCalls:0,output:out};await writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }finally{if(browser)await browser.close();server.kill();db.close();await writeFile(path.join(out,'server.log'),log);}

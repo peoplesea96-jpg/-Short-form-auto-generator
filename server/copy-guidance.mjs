@@ -39,3 +39,5 @@ export function reviewCopy(p,s){
 }
 
 export function copyReviewKey(p,s){return JSON.stringify({version:COPY_VERSION,narration:s.narration,visual:s.visual,shots:s.shots?.map(x=>({visual:x.visual,motion:x.motion})),evidence:s.evidence,copy:s.copy,speechMode:s.speechMode,sources:copySources(p),identity:p.productSheet?{name:p.productSheet.name,brand:p.productSheet.brand,option:p.productSheet.option}:null,captionMode:p.productionDirection?.captionMode});}
+
+export function copyReviewChecked(p,s,checks={}){const key=copyReviewKey(p,s);return Object.hasOwn(checks,s.id)?checks[s.id]===key:!!s.scriptApproved&&s.copyApproval?.reviewKey===key;}

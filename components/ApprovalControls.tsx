@@ -6,7 +6,7 @@ const names:Any={script:'대본',image:'이미지',audio:'음성',video:'영상'
 function units(project:Any,stage:string){return project.scenes.flatMap((scene:Any,i:number)=>['image','video'].includes(stage)&&scene.shots?.length?scene.shots.map((shot:Any,j:number)=>({...shot,label:`씬 ${i+1} · 샷 ${j+1}`})):[{...scene,label:`씬 ${i+1}`}]);}
 export function BulkApproval({project,step,disabled,onApprove}:{project:Any,step:number,disabled:boolean,onApprove:(stage:string)=>void}){
  const stage=stages[step],targets=units(project,stage),pending=targets.filter((s:Any)=>!s[stage+'Approved']);
- return <button disabled={disabled||!pending.length} onClick={()=>onApprove(stage)} title="현재 선택된 결과를 모두 승인합니다. 미생성·만료·조건 불일치가 있으면 승인하지 않습니다.">{names[stage]} 일괄 승인{pending.length?` (${pending.length})`:''}</button>;
+ return <span><button disabled={disabled||!pending.length} onClick={()=>onApprove(stage)} title={stage==='script'?'전체 씬의 상품명·주장·원문·조건 검토 확인을 포함해 대본을 일괄 승인합니다. 수정이 필요한 오류는 먼저 해결해야 합니다.':'현재 선택된 결과를 모두 승인합니다. 미생성·만료·조건 불일치가 있으면 승인하지 않습니다.'}>{names[stage]} 일괄 승인{pending.length?` (${pending.length})`:''}</button>{stage==='script'&&<small style={{display:'block'}}>전체 씬의 카피 검토 확인 체크를 포함합니다.</small>}</span>;
 }
 export function NextStep({project,step,dirty,busy,onNext}:{project:Any,step:number,dirty:boolean,busy:boolean,onNext:()=>void}){
  const id=useId(),stage=stages[step],reasons:string[]=[];
