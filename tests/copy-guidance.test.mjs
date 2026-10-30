@@ -33,10 +33,10 @@ test('unknown references and a failing scene block batch approval atomically',()
  const p=fixture();p.scenes[1].copy.sourceIds=['invented'];saveProject(p);assert.throws(()=>approve(owner,p.id,null,'script',{revision:p.revision,copyReviewed:p.scenes.map(s=>s.id)}),/없는 출처/);assert.ok(getProject(p.id,owner).scenes.every(s=>!s.scriptApproved));
 });
 test('both generation routes carry common policy, source contract and copy schema in both caption modes',async()=>{
- const old=globalThis.fetch;let body;globalThis.fetch=async(url,opt)=>{body=JSON.parse(opt.body);return new Response(JSON.stringify({output:[{content:[{type:'output_text',text:JSON.stringify({scenes:[]})}]}],usage:{}}));};
+ const old=globalThis.fetch;let body;globalThis.fetch=async(url,opt)=>{body=JSON.parse(opt.body);return new Response(JSON.stringify({output:[{content:[{type:'output_text',text:JSON.stringify({scenes:Object.fromEntries((JSON.parse(body.input).sceneLayout||[]).map(s=>[s.key,{...s}]))})}]}],usage:{}}));};
  try{for(const mode of ['none','narration']){const p=fixture();p.productionDirection={enabled:true,minProductRatio:.8,maxPresenterRatio:.4,captionMode:mode};if(mode==='narration')p.productionDirection.captionMode='narration';
  // Both supported caption modes exercise the actual direction schema.
- await generateScript(p);assert.ok(body.text.format.schema.properties.scenes.items.properties.copy);assert.match(body.instructions,/narration-v0.3-sales/);assert.doesNotMatch(body.instructions,/CTA는 마지막 장면 위에 표시되므로/);assert.equal(JSON.parse(body.input).copyContext.sources[1].status,'source_observed');
+ await generateScript(p);assert.ok(body.text.format.schema.properties.scenes.properties.scene_1.properties.copy);assert.match(body.instructions,/narration-v0.3-sales/);assert.doesNotMatch(body.instructions,/CTA는 마지막 장면 위에 표시되므로/);assert.equal(JSON.parse(body.input).copyContext.sources[1].status,'source_observed');
  try{await requestPlan(p,'storyboard');}catch{}assert.match(body.instructions,/소비자에게 실제로/);assert.ok(body.text.format.schema.properties.scenes.items.properties.copy);if(mode==='none')assert.match(body.instructions,/무자막: 화면 CTA/);
  }}finally{globalThis.fetch=old;}
 });
