@@ -1,3 +1,4 @@
+import {terminalVideoStatuses,terminalVideoFailure,recoverTerminalVideoJobs} from './video-job-recovery.mjs';
 import {isTextJob,textJobFailure,recoverTextJobs} from './text-job-recovery.mjs';
 import {generatePacedStoryboard,storeStoryboardDraft} from './pacing.mjs';
 import {pacingPlan} from './pacing-plan.mjs';
@@ -49,7 +50,7 @@ if(snapshot?.provider==='higgsfield'){
  if(Date.now()<state.nextPoll)return;
  assert(Date.now()-state.submitted<3600000,'영상 작업 조회 시간이 초과되었습니다. 운영자가 공급자 작업을 확인해 주세요.');
  let result;try{result=await pollHiggsfield(state);}catch(e){if(e.retryable||e instanceof TypeError||e.name==='TimeoutError'){state.attempt++;state.nextPoll=Date.now()+Math.min(60000,2000*2**Math.min(state.attempt,5));update(job.id,{provider_id:JSON.stringify(state)});return;}throw e;}
- if(['failed','nsfw','canceled','cancelled'].includes(result.status)){if(saved.length)finish(job,saved,null,'unknown');update(job.id,{status:'unknown',actual:null,error:'Higgsfield 작업이 종료되었습니다. 과금 여부를 운영자가 확인해야 합니다.'});return;}
+ if(terminalVideoStatuses.includes(result.status)){if(saved.length)finish(job,saved,null,'failed');const failure=terminalVideoFailure(result.status,saved.length,input.selected.length);update(job.id,failure);console.error(JSON.stringify({job:job.id,kind:job.kind,status:failure.status,providerStatus:result.status,completed:saved.length,total:input.selected.length}));return;}
  if(result.status!=='completed'){state.attempt++;state.nextPoll=Date.now()+Math.min(10000,2000+state.attempt*1000);update(job.id,{provider_id:JSON.stringify(state)});return;}
  const f=await storeFile(job.project,job.owner,await downloadHiggsfield(result),'video/mp4','scene.mp4');const seconds=await duration(f.id,'video');
  assert(seconds+1/30>=snapshot.requestedSeconds,'공급자 영상이 요청 길이보다 짧습니다. 운영자가 결과·과금을 확인해 주세요.');
@@ -66,6 +67,8 @@ const lease=setInterval(()=>{db.prepare('UPDATE worker_lock SET expires=? WHERE 
 process.on('exit',()=>{clearInterval(lease);db.prepare('DELETE FROM worker_lock WHERE owner=?').run(workerId);});
 db.prepare("UPDATE jobs SET status='unknown',error='작업 프로세스가 요청 도중 종료되었습니다. 공급자 작업을 확인해 주세요.' WHERE status='submitting'").run();
 recoverTextJobs(db);
+const recoveredVideos=recoverTerminalVideoJobs(db);
+console.log('Recovered terminal video jobs: '+recoveredVideos);
 console.log('Shortform worker started.');
 if(process.env.NODE_ENV!=='test'&&process.env.HIGGSFIELD_API_KEY){try{const catalog=await marketingCatalog();console.log('Marketing Studio preset catalog ready: '+JSON.stringify({count:catalog.items.length,total:catalog.total,withPreviews:catalog.items.filter(p=>p.preview).length,shape:catalog.diagnostics,previewCheck:await checkMarketingPreview(catalog)}));}catch(e){console.log('Marketing Studio preset catalog unavailable: '+String(e.message).slice(0,180));}}
 while(!stop){db.prepare('INSERT OR REPLACE INTO heartbeat VALUES(1,?)').run(Date.now());const job=tx(()=>db.prepare("SELECT * FROM jobs WHERE status IN ('queued','running') ORDER BY created LIMIT 1").get());if(job){try{await step(job);}catch(e){const fresh=db.prepare('SELECT * FROM jobs WHERE id=?').get(job.id);if(isTextJob(fresh)){const failure=textJobFailure(fresh,e);update(job.id,failure);console.error(JSON.stringify({job:job.id,kind:job.kind,status:failure.status,error:failure.error}));continue;}const unknown=(fresh.status==='submitting'&&e?.definitive!==true)||(['video','marketing-image'].includes(fresh.kind)&&!!fresh.provider_id);const partial=JSON.parse(fresh.result||'[]');if(partial.length&&['image','audio','video','marketing-image'].includes(fresh.kind))finish(fresh,partial,null,unknown?'unknown':'failed');update(job.id,{status:unknown?'unknown':'failed',actual:fresh.kind==='marketing-image'?(unknown||partial.length?null:0):fresh.kind==='music'?(Object.hasOwn(e,'musicCost')?e.musicCost:(unknown?null:0)):fresh.kind==='analysis'?(Object.hasOwn(e,'analysisCost')?e.analysisCost:(unknown?fresh.actual:0)):(unknown?fresh.actual:partial.length?Math.ceil(partial.reduce((sum,item)=>sum+(item.cost||0),0)):0),error:unknown?'요청 결과가 불명확합니다. 자동 재요청하지 않으며 운영 확인이 필요합니다.':String(e.message).slice(0,300)});}}await cleanup().catch(()=>{});await new Promise(r=>setTimeout(r,process.env.NODE_ENV==='test'?Number(process.env.WORKER_POLL_MS||50):(job?5000:2000)));}

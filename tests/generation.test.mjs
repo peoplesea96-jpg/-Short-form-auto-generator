@@ -7,7 +7,7 @@ import path from 'node:path';
 const dir=mkdtempSync(path.join(tmpdir(),'frame-models-'));process.env.DATA_DIR=dir;
 Object.assign(process.env,{GEMINI_API_KEY:'fake-gemini',OPENAI_API_KEY:'fake-openai',HIGGSFIELD_API_KEY:'fake-higgsfield',HIGGSFIELD_UPLOAD_HOSTS:'uploads.example.test',MEDIA_HOSTS:'media.example.test',RATES_REVIEWED_AT:'2026-10-12',USD_TO_KRW:'1000',GEMINI_IMAGE_USD_PER_IMAGE:'.04',GPT_IMAGE_RESERVE_USD_PER_IMAGE:'.3',HIGGSFIELD_KLING_USD_PER_SECOND:'.1',HIGGSFIELD_MINIMAX_6S_USD_PER_CLIP:'.2',HIGGSFIELD_MINIMAX_10S_USD_PER_CLIP:'.4',HIGGSFIELD_SEEDANCE_720P_USD_PER_SECOND:'.2'});
 const {db,id,saveProject,getProject,budget}=await import('../server/db.mjs');
-const {createProject,active,quote,enqueue,approve}=await import('../server/domain.mjs');
+const {createProject,active,quote,enqueue,approve,plan}=await import('../server/domain.mjs');
 const {saveGenerationSettings,addCandidate,selectCandidate}=await import('../server/generation-candidates.mjs');
 const {generationCatalog,inputFingerprint,modelSnapshot,generationFingerprint}=await import('../server/generation-models.mjs');
 const {videoPayload,apiUrl,submitHiggsfield,pollHiggsfield}=await import('../server/higgsfield.mjs');
@@ -41,3 +41,15 @@ test('saved GPT choice upgrades future requests to 2.5, keeps historical media a
  const job=enqueue(owner,p.id,q,id());assert.equal(JSON.parse(job.input).generations[s.id].version,'gpt-image-2.5-sunburst');db.prepare("UPDATE jobs SET status='done',actual=300 WHERE id=?").run(job.id);
 });
 test.after(()=>{db.close();rmSync(dir,{recursive:true,force:true});});
+
+test('bulk video generation skips valid existing clips, includes missing expired and stale clips; explicit comparison still works',async()=>{
+ const {voiceHash}=await import('../server/project-profiles.mjs');const p=project();
+ const original=p.scenes[0];original.audio.profileHash=voiceHash(p.voiceProfile);original.video.inputFingerprint=inputFingerprint(p,original,'video');
+ const missing={...structuredClone(original),id:id(),video:null};
+ const expired={...structuredClone(original),id:id(),video:{...original.video,expires:1}};
+ const stale={...structuredClone(original),id:id(),video:{...original.video,inputFingerprint:'old'}};
+ p.scenes.push(missing,expired,stale);
+ const batch=plan(p,'video');assert.deepEqual(batch.selected.map(s=>s.id),[missing.id,expired.id,stale.id]);assert.equal(batch.amount,1500);
+ assert.equal(plan(p,'video',original.id).selected[0].id,original.id);
+ p.scenes=[original];assert.throws(()=>plan(p,'video'),/미생성 영상이 없습니다/);
+});

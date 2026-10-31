@@ -12,6 +12,6 @@ globalThis.fetch=async(url,options={})=>{
   if(process.env.HF_MOCK_MODE==='rejected')return new Response('invalid request',{status:400});
   return Response.json({request_id:'mock-job',status_url:'https://api.higgsfield.ai/requests/mock-job/status'});
  }
- if(u.hostname==='api.higgsfield.ai'&&u.pathname.includes('/requests/')){polls++;if(polls===1)return new Response('busy',{status:503});return Response.json({status:'completed',video:{url:'https://media.example.test/video'}});}
+ if(u.hostname==='api.higgsfield.ai'&&u.pathname.includes('/requests/')){polls++;if(process.env.HF_MOCK_MODE==='terminal')return Response.json({status:'failed'});if(polls===1)return new Response('busy',{status:503});return Response.json({status:'completed',video:{url:'https://media.example.test/video'}});}
  throw Error('Unexpected mock request: '+u.origin);
 };
